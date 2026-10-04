@@ -1,0 +1,19 @@
+# Local development: runs only MySQL. Start the app itself with `npm run dev`.
+name: piramid-dev
+
+services:
+  db:
+    image: mysql:8.4
+    ports:
+      # 3307 on the host so it does not clash with XAMPP's MySQL on 3306.
+      - "3307:3306"
+    environment:
+      MYSQL_DATABASE: piramid
+      MYSQL_USER: piramid
+      MYSQL_PASSWORD: piramid
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  db_data:

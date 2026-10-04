@@ -1,0 +1,40 @@
+# Production stack on the VPS. Copied there by the deploy workflow; reads ~/piramid/.env.
+name: piramid
+
+services:
+  app:
+    image: ghcr.io/imanirumvaolivier20-a11y/piramid:latest
+    restart: unless-stopped
+    ports:
+      # The VPS hosts other apps, so we stay off 80/443 and publish a dedicated port.
+      - "${APP_PORT:-3100}:3000"
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    # Not published on the host: only the app container can reach it.
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+volumes:
+  db_data:

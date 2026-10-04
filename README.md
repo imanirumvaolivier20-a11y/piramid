@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pyramid
 
-## Getting Started
+Construction site project management. Next.js + MySQL, deployed with Docker.
 
-First, run the development server:
+## Local development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+docker compose up -d      # MySQL on localhost:3307
+cp .env.example .env.local
+npm install
+npm run dev               # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`http://localhost:3000/api/health` reports whether the app can reach the database.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deployment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Every push to `main` runs `.github/workflows/deploy.yml`:
 
-## Learn More
+1. Lints, builds the Docker image and pushes it to `ghcr.io/imanirumvaolivier20-a11y/piramid`.
+2. Copies `docker-compose.prod.yml` to `~/piramid` on the VPS over SSH.
+3. Pulls the new image, restarts the stack and checks `/api/health`.
 
-To learn more about Next.js, take a look at the following resources:
+The app is published on port `3100` of the VPS (change `APP_PORT` in `~/piramid/.env`).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### One-time setup
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+GitHub repository secrets (Settings → Secrets and variables → Actions):
 
-## Deploy on Vercel
+| Secret        | Value                                         |
+| ------------- | --------------------------------------------- |
+| `VPS_HOST`    | VPS IP address                                |
+| `VPS_USER`    | SSH user (must be allowed to run `docker`)    |
+| `VPS_SSH_KEY` | Private deploy key                            |
+| `VPS_PORT`    | SSH port, only if it is not 22                |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+On the VPS, create `~/piramid/.env` with the production values listed in `.env.example`
+and add the public deploy key to `~/.ssh/authorized_keys`.
