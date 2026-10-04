@@ -1,19 +1,18 @@
-# Local development: runs only MySQL. Start the app itself with `npm run dev`.
+# Local development: runs only PostgreSQL. Start the app itself with `npm run dev`.
 name: piramid-dev
 
 services:
   db:
-    image: mysql:8.4
+    image: postgres:17-alpine
     ports:
-      # 3307 on the host so it does not clash with XAMPP's MySQL on 3306.
-      - "3307:3306"
+      # 5433 on the host so it does not clash with a locally installed PostgreSQL.
+      - "5433:5432"
     environment:
-      MYSQL_DATABASE: piramid
-      MYSQL_USER: piramid
-      MYSQL_PASSWORD: piramid
-      MYSQL_ROOT_PASSWORD: root
+      POSTGRES_DB: piramid
+      POSTGRES_USER: piramid
+      POSTGRES_PASSWORD: piramid
     volumes:
-      - db_data:/var/lib/mysql
+      - pg_data:/var/lib/postgresql/data
 
 volumes:
-  db_data:
+  pg_data:

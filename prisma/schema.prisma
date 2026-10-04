@@ -1,0 +1,324 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────── Identity (global, not tenant-scoped) ─────────────
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  image     String?
+  createdAt DateTime @default(now())
+
+  memberships   Membership[]
+  ownedAccounts Account[]
+  workerLinks   Worker[]
+  projects      Project[]
+  contracts     Contract[]
+  dailyReports  DailyReport[]
+  expenses      Expense[]
+}
+
+/// Lookup table of account types. New types (supplier, architect, ...) are
+/// rows here; features are driven by the capability flags, not by the key.
+model AccountType {
+  key              String  @id
+  label            String
+  description      String
+  sortOrder        Int     @default(0)
+  /// Offered on the onboarding screen.
+  selectable       Boolean @default(true)
+  canOwnProjects   Boolean @default(false)
+  canBeHired       Boolean @default(false)
+  canManageWorkers Boolean @default(false)
+
+  accounts Account[]
+}
+
+/// The tenant. Companies and individuals are both Accounts, so everything
+/// tenant-owned hangs off one accountId regardless of account type.
+model Account {
+  id         String   @id @default(cuid())
+  typeKey    String
+  name       String
+  /// Public handle used for search and profile URLs.
+  username   String   @unique
+  email      String?
+  phone      String?
+  location   String?
+  bio        String?
+  currency   String   @default("RWF")
+  /// Lets workers join a company account.
+  inviteCode String?  @unique
+  ownerId    String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  type        AccountType      @relation(fields: [typeKey], references: [key])
+  owner       User             @relation(fields: [ownerId], references: [id])
+  memberships Membership[]
+  projects    Project[]
+  categories  WorkerCategory[]
+  workers     Worker[]
+  expenses    Expense[]
+  reports     DailyReport[]
+
+  contractsAsOwner      Contract[]      @relation("ContractOwner")
+  contractsAsContractor Contract[]      @relation("ContractContractor")
+  projectMembers        ProjectMember[]
+
+  @@index([typeKey])
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Membership {
+  id        String         @id @default(cuid())
+  userId    String
+  accountId String
+  role      MembershipRole @default(MEMBER)
+  createdAt DateTime       @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, accountId])
+  @@index([accountId])
+}
+
+// ───────────── Tenant-scoped (row-level security applies) ─────────────
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  /// The owning tenant (the Project Owner's account).
+  accountId   String
+  name        String
+  location    String?
+  description String?
+  status      ProjectStatus @default(ACTIVE)
+  startDate   DateTime?     @db.Date
+  createdById String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  account   Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdBy User            @relation(fields: [createdById], references: [id])
+  contracts Contract[]
+  members   ProjectMember[]
+  reports   DailyReport[]
+  expenses  Expense[]
+
+  @@index([accountId])
+}
+
+enum EngagementModel {
+  /// Contractor manages everything for an agreed total budget.
+  FULL_MANAGEMENT
+  /// Contractor does the work; owner pays for materials and labor on request.
+  OWNER_FUNDS
+}
+
+enum ContractStatus {
+  PENDING
+  ACTIVE
+  DECLINED
+  ENDED
+}
+
+/// A hire: the project's owner account engages a company or engineer.
+model Contract {
+  id                  String          @id @default(cuid())
+  projectId           String
+  ownerAccountId      String
+  contractorAccountId String
+  engagementModel     EngagementModel
+  status              ContractStatus  @default(PENDING)
+  /// Total agreed budget under FULL_MANAGEMENT. Unused until budget logic is built.
+  agreedBudget        Decimal?        @db.Decimal(14, 2)
+  note                String?
+  hiredById           String
+  createdAt           DateTime        @default(now())
+  respondedAt         DateTime?
+  endedAt             DateTime?
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner      Account @relation("ContractOwner", fields: [ownerAccountId], references: [id])
+  contractor Account @relation("ContractContractor", fields: [contractorAccountId], references: [id])
+  hiredBy    User    @relation(fields: [hiredById], references: [id])
+
+  @@index([projectId])
+  @@index([contractorAccountId])
+  @@index([ownerAccountId])
+}
+
+/// Worker categories are editable per account (Engineer, Builder, Aid, ...).
+model WorkerCategory {
+  id        String   @id @default(cuid())
+  accountId String
+  name      String
+  /// Default daily wage; drives payroll accrual in a later phase.
+  dailyRate Decimal? @db.Decimal(14, 2)
+  createdAt DateTime @default(now())
+
+  account Account           @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  workers Worker[]
+  wages   DailyReportWage[]
+
+  @@unique([accountId, name])
+}
+
+/// Roster entry. Optionally linked to a User so the worker can sign in.
+model Worker {
+  id         String   @id @default(cuid())
+  accountId  String
+  name       String
+  categoryId String?
+  phone      String?
+  email      String?
+  userId     String?
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  account     Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  category    WorkerCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  user        User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  assignments ProjectMember[]
+
+  @@index([accountId])
+  @@index([userId])
+}
+
+enum ProjectRole {
+  STORE_KEEPER
+  FOREMAN
+  ENGINEER
+  BUILDER
+  AID
+}
+
+/// A roster worker assigned to a project with a role.
+model ProjectMember {
+  id        String      @id @default(cuid())
+  projectId String
+  workerId  String
+  /// The account whose roster the worker belongs to (owner or contractor).
+  accountId String
+  role      ProjectRole
+  createdAt DateTime    @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  worker  Worker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, workerId])
+  @@index([workerId])
+}
+
+/// The core activity-log entry: one report of a day's work on a project.
+model DailyReport {
+  id           String   @id @default(cuid())
+  projectId    String
+  /// The account the author was acting for (owner or contractor).
+  accountId    String
+  date         DateTime @db.Date
+  description  String
+  workersCount Int      @default(0)
+  createdById  String
+  createdAt    DateTime @default(now())
+
+  project   Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  account   Account               @relation(fields: [accountId], references: [id])
+  createdBy User                  @relation(fields: [createdById], references: [id])
+  photos    DailyReportPhoto[]
+  materials DailyReportMaterial[]
+  wages     DailyReportWage[]
+
+  @@index([projectId, date])
+}
+
+model DailyReportPhoto {
+  id          String   @id @default(cuid())
+  reportId    String
+  /// Storage key (see src/lib/storage.ts).
+  key         String   @unique
+  contentType String
+  size        Int
+  createdAt   DateTime @default(now())
+
+  report DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+}
+
+model DailyReportMaterial {
+  id       String  @id @default(cuid())
+  reportId String
+  name     String
+  quantity Decimal @db.Decimal(14, 3)
+  unit     String
+
+  report DailyReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+}
+
+/// Wages for the day, one row per worker category.
+model DailyReportWage {
+  id           String  @id @default(cuid())
+  reportId     String
+  categoryId   String?
+  /// Snapshot, so the report stays readable if the category is renamed or removed.
+  categoryName String
+  workers      Int
+  amount       Decimal @db.Decimal(14, 2)
+
+  report   DailyReport     @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  category WorkerCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@index([reportId])
+}
+
+enum ExpenseCategory {
+  MATERIALS
+  LABOR
+  TRANSPORT
+  EQUIPMENT
+  PERMITS
+  OTHER
+}
+
+model Expense {
+  id          String          @id @default(cuid())
+  projectId   String
+  accountId   String
+  category    ExpenseCategory
+  amount      Decimal         @db.Decimal(14, 2)
+  date        DateTime        @db.Date
+  note        String?
+  receiptKey  String?         @unique
+  createdById String
+  createdAt   DateTime        @default(now())
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  account   Account @relation(fields: [accountId], references: [id])
+  createdBy User    @relation(fields: [createdById], references: [id])
+
+  @@index([projectId, date])
+}

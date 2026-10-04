@@ -29,6 +29,7 @@ jobs:
 
       - run: npm ci
       - run: npm run lint
+      - run: npm run typecheck
 
       - uses: docker/setup-buildx-action@v3
 
@@ -97,10 +98,14 @@ jobs:
             "GHCR_USER='$GHCR_USER' GHCR_TOKEN='$GHCR_TOKEN' bash -s" <<'EOF'
           set -euo pipefail
           cd /var/www/apps/piramid
-          if [ ! -f .env ]; then
-            echo "/var/www/apps/piramid/.env is missing on the VPS. Create it from .env.example first." >&2
-            exit 1
-          fi
+          touch .env && chmod 600 .env
+
+          # Generate any secret the stack needs that is not in .env yet.
+          ensure_secret() {
+            grep -q "^$1=" .env || echo "$1=$(openssl rand -hex 32)" >> .env
+          }
+          ensure_secret POSTGRES_PASSWORD
+          ensure_secret AUTH_SECRET
 
           echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
           docker compose -f docker-compose.prod.yml pull app

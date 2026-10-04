@@ -9,32 +9,34 @@ services:
       # The VPS hosts other apps, so we stay off 80/443 and publish a dedicated port.
       - "${APP_PORT:-3100}:3000"
     environment:
-      DB_HOST: db
-      DB_PORT: 3306
-      DB_NAME: ${MYSQL_DATABASE}
-      DB_USER: ${MYSQL_USER}
-      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DATABASE_URL: postgresql://piramid:${POSTGRES_PASSWORD}@db:5432/piramid
+      AUTH_SECRET: ${AUTH_SECRET}
+      # Public URL of the site, needed once Google sign-in is enabled (e.g. https://pyramid.example.com).
+      AUTH_URL: ${AUTH_URL:-}
+      AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
+      AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
+    volumes:
+      - uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
 
   db:
-    image: mysql:8.4
+    image: postgres:17-alpine
     restart: unless-stopped
     # Not published on the host: only the app container can reach it.
     environment:
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      POSTGRES_DB: piramid
+      POSTGRES_USER: piramid
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - db_data:/var/lib/mysql
+      - pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U piramid -d piramid"]
+      interval: 5s
       timeout: 5s
       retries: 12
-      start_period: 30s
 
 volumes:
-  db_data:
+  pg_data:
+  uploads:
