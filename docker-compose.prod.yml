@@ -1,4 +1,4 @@
-# Production stack on the VPS. Copied there by the deploy workflow; reads ~/piramid/.env.
+# Production stack on the VPS. Copied there by the deploy workflow; reads /var/www/apps/piramid/.env.
 name: piramid
 
 services:

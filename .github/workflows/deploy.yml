@@ -84,8 +84,8 @@ jobs:
       - name: Copy compose file
         if: steps.check.outputs.ready == 'true'
         run: |
-          ssh -i ~/.ssh/deploy_key -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" "mkdir -p ~/piramid"
-          scp -i ~/.ssh/deploy_key -P "$VPS_PORT" docker-compose.prod.yml "$VPS_USER@$VPS_HOST:~/piramid/docker-compose.prod.yml"
+          ssh -i ~/.ssh/deploy_key -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" "mkdir -p /var/www/apps/piramid"
+          scp -i ~/.ssh/deploy_key -P "$VPS_PORT" docker-compose.prod.yml "$VPS_USER@$VPS_HOST:/var/www/apps/piramid/docker-compose.prod.yml"
 
       - name: Pull and restart
         if: steps.check.outputs.ready == 'true'
@@ -96,9 +96,9 @@ jobs:
           ssh -i ~/.ssh/deploy_key -p "$VPS_PORT" "$VPS_USER@$VPS_HOST" \
             "GHCR_USER='$GHCR_USER' GHCR_TOKEN='$GHCR_TOKEN' bash -s" <<'EOF'
           set -euo pipefail
-          cd ~/piramid
+          cd /var/www/apps/piramid
           if [ ! -f .env ]; then
-            echo "~/piramid/.env is missing on the VPS. Create it from .env.example first." >&2
+            echo "/var/www/apps/piramid/.env is missing on the VPS. Create it from .env.example first." >&2
             exit 1
           fi
 
