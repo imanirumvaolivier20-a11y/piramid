@@ -92,5 +92,5 @@ export async function createDailyReport(
       },
     },
   });
-  redirect(`/projects/${projectId}`);
+  redirect(`/projects/${projectId}/activity`);
 }
