@@ -7,6 +7,7 @@ import { z } from "zod";
 import { type ActionState, firstIssue, optional } from "@/lib/action-state";
 import { prisma } from "@/lib/db";
 import { ACTIVE_ACCOUNT_COOKIE, requireContext } from "@/lib/session";
+import { deleteStored, imageProblem, saveImage } from "@/lib/storage";
 
 export async function switchAccount(formData: FormData) {
   const ctx = await requireContext();
@@ -50,4 +51,30 @@ export async function updateAccountProfile(_prev: ActionState, formData: FormDat
   });
   revalidatePath("/", "layout");
   return {};
+}
+
+export async function updateLogo(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const ctx = await requireContext();
+  if (!ctx.isManager) return { error: "Only account owners and admins can change the logo." };
+
+  const file = formData.get("logo");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose an image to upload." };
+  const problem = imageProblem(file);
+  if (problem) return { error: problem };
+
+  const { key } = await saveImage(file, "logos");
+  const previous = ctx.account.logoKey;
+  await prisma.account.update({ where: { id: ctx.account.id }, data: { logoKey: key } });
+  if (previous) await deleteStored(previous);
+  revalidatePath("/", "layout");
+  return {};
+}
+
+/** Goes back to showing the owner's Google photo. */
+export async function removeLogo() {
+  const ctx = await requireContext();
+  if (!ctx.isManager || !ctx.account.logoKey) return;
+  await prisma.account.update({ where: { id: ctx.account.id }, data: { logoKey: null } });
+  await deleteStored(ctx.account.logoKey);
+  revalidatePath("/", "layout");
 }

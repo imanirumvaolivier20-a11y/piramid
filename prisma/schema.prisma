@@ -23,6 +23,10 @@ model User {
   contracts     Contract[]
   dailyReports  DailyReport[]
   expenses      Expense[]
+
+  materialRequests  MaterialRequest[] @relation("RequestedBy")
+  materialDecisions MaterialRequest[] @relation("DecidedBy")
+  materialReceipts  MaterialRequest[] @relation("ReceivedBy")
 }
 
 /// Lookup table of account types. New types (supplier, architect, ...) are
@@ -54,6 +58,8 @@ model Account {
   location   String?
   bio        String?
   currency   String   @default("RWF")
+  /// Storage key of the uploaded logo. Without one, the owner's Google photo is shown.
+  logoKey    String?  @unique
   /// Lets workers join a company account.
   inviteCode String?  @unique
   ownerId    String
@@ -69,9 +75,11 @@ model Account {
   expenses    Expense[]
   reports     DailyReport[]
 
-  contractsAsOwner      Contract[]      @relation("ContractOwner")
-  contractsAsContractor Contract[]      @relation("ContractContractor")
+  contractsAsOwner      Contract[]        @relation("ContractOwner")
+  contractsAsContractor Contract[]        @relation("ContractContractor")
   projectMembers        ProjectMember[]
+  materialRequestsSent  MaterialRequest[] @relation("RequestFrom")
+  materialRequestsTo    MaterialRequest[] @relation("RequestTo")
 
   @@index([typeKey])
 }
@@ -118,12 +126,13 @@ model Project {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  account   Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  createdBy User            @relation(fields: [createdById], references: [id])
-  contracts Contract[]
-  members   ProjectMember[]
-  reports   DailyReport[]
-  expenses  Expense[]
+  account          Account           @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  createdBy        User              @relation(fields: [createdById], references: [id])
+  contracts        Contract[]
+  members          ProjectMember[]
+  reports          DailyReport[]
+  expenses         Expense[]
+  materialRequests MaterialRequest[]
 
   @@index([accountId])
 }
@@ -297,6 +306,7 @@ model DailyReportWage {
 
 enum ExpenseCategory {
   MATERIALS
+  SALARIES
   LABOR
   TRANSPORT
   EQUIPMENT
@@ -305,20 +315,93 @@ enum ExpenseCategory {
 }
 
 model Expense {
-  id          String          @id @default(cuid())
-  projectId   String
-  accountId   String
-  category    ExpenseCategory
-  amount      Decimal         @db.Decimal(14, 2)
-  date        DateTime        @db.Date
-  note        String?
-  receiptKey  String?         @unique
-  createdById String
-  createdAt   DateTime        @default(now())
+  id                String          @id @default(cuid())
+  projectId         String
+  accountId         String
+  category          ExpenseCategory
+  amount            Decimal         @db.Decimal(14, 2)
+  date              DateTime        @db.Date
+  note              String?
+  receiptKey        String?         @unique
+  /// Set when the expense was recorded automatically on receiving a material request.
+  materialRequestId String?         @unique
+  createdById       String
+  createdAt         DateTime        @default(now())
 
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  account   Account @relation(fields: [accountId], references: [id])
-  createdBy User    @relation(fields: [createdById], references: [id])
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  account         Account          @relation(fields: [accountId], references: [id])
+  createdBy       User             @relation(fields: [createdById], references: [id])
+  materialRequest MaterialRequest? @relation(fields: [materialRequestId], references: [id], onDelete: SetNull)
 
   @@index([projectId, date])
+}
+
+enum MaterialRequestStatus {
+  /// Waiting for the recipient to approve or reject.
+  SUBMITTED
+  /// Approved; the materials are being bought or delivered.
+  APPROVED
+  REJECTED
+  /// Delivered on site and counted.
+  RECEIVED
+  /// Withdrawn by the requester before a decision.
+  CANCELLED
+}
+
+/// A request for materials, sent by someone on the project to the account
+/// that pays: the project owner, or the hired company/engineer.
+model MaterialRequest {
+  id            String                @id @default(cuid())
+  projectId     String
+  /// Sequential per project, shown as #1, #2, ...
+  number        Int
+  /// The account the requester was acting for.
+  fromAccountId String
+  /// The account asked to approve and pay. Can change when a request is forwarded.
+  toAccountId   String
+  status        MaterialRequestStatus @default(SUBMITTED)
+  note          String?
+  neededBy      DateTime?             @db.Date
+  requestedById String
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  forwardedAt   DateTime?
+  decidedById   String?
+  decidedAt     DateTime?
+  decisionNote  String?
+  receivedById  String?
+  receivedAt    DateTime?
+  receivedNote  String?
+
+  project     Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  fromAccount Account               @relation("RequestFrom", fields: [fromAccountId], references: [id])
+  toAccount   Account               @relation("RequestTo", fields: [toAccountId], references: [id])
+  requestedBy User                  @relation("RequestedBy", fields: [requestedById], references: [id])
+  decidedBy   User?                 @relation("DecidedBy", fields: [decidedById], references: [id])
+  receivedBy  User?                 @relation("ReceivedBy", fields: [receivedById], references: [id])
+  items       MaterialRequestItem[]
+  expense     Expense?
+
+  @@unique([projectId, number])
+  @@index([toAccountId, status])
+}
+
+model MaterialRequestItem {
+  id               String   @id @default(cuid())
+  requestId        String
+  /// Short name used to total materials across requests and reports, e.g. "Cement".
+  name             String
+  /// Free-text product description: brand, size, grade, colour...
+  details          String?
+  quantity         Decimal  @db.Decimal(14, 3)
+  unit             String
+  /// Price per unit. Estimated by the requester, confirmed on approval.
+  unitPrice        Decimal? @db.Decimal(14, 2)
+  /// Counted on delivery; differences from `quantity` are discrepancies.
+  receivedQuantity Decimal? @db.Decimal(14, 3)
+  sortOrder        Int      @default(0)
+
+  request MaterialRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
 }

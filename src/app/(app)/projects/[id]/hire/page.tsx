@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Badge, Card, EmptyState, buttonClass, inputClass } from "@/components/ui";
+import { Avatar, Badge, Card, EmptyState, buttonClass, inputClass } from "@/components/ui";
+import { accountImage } from "@/lib/avatar";
 import { getProjectAccess } from "@/lib/access";
 import { prisma } from "@/lib/db";
 import { requireContext } from "@/lib/session";
@@ -33,7 +34,7 @@ export default async function HirePage({
               { name: { contains: query, mode: "insensitive" } },
             ],
           },
-          include: { type: true },
+          include: { type: true, owner: { select: { image: true } } },
           orderBy: { name: "asc" },
           take: 20,
         })
@@ -68,12 +69,15 @@ export default async function HirePage({
               <Link href={`/accounts/${account.username}?project=${id}`} className="block">
                 <Card className="hover:border-amber-400">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h3 className="font-semibold text-zinc-900">{account.name}</h3>
-                      <p className="text-sm text-zinc-600">
-                        @{account.username}
-                        {account.location && ` · ${account.location}`}
-                      </p>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Avatar src={accountImage(account)} name={account.name} />
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-zinc-900">{account.name}</h3>
+                        <p className="text-sm text-zinc-600">
+                          @{account.username}
+                          {account.location && ` · ${account.location}`}
+                        </p>
+                      </div>
                     </div>
                     <Badge>{account.type.label}</Badge>
                   </div>

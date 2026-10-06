@@ -18,11 +18,9 @@ function suggestUsername(name: string) {
 
 export function OnboardingForm({
   types,
-  currencies,
   suggestedName,
 }: {
   types: AccountTypeOption[];
-  currencies: string[];
   suggestedName: string;
 }) {
   const [state, formAction] = useActionState(completeOnboarding, {});
@@ -30,7 +28,6 @@ export function OnboardingForm({
   const [name, setName] = useState(suggestedName);
   const [username, setUsername] = useState(suggestUsername(suggestedName));
   const [usernameEdited, setUsernameEdited] = useState(false);
-  const [currency, setCurrency] = useState(currencies[0]);
   const [inviteCode, setInviteCode] = useState("");
 
   const isCompany = typeKey === "COMPANY";
@@ -89,14 +86,6 @@ export function OnboardingForm({
               }}
               className={inputClass}
             />
-          </Field>
-
-          <Field label="Currency" hint="Used for budgets, expenses and wages.">
-            <select name="currency" value={currency} onChange={(e) => setCurrency(e.target.value)} className={inputClass}>
-              {currencies.map((code) => (
-                <option key={code}>{code}</option>
-              ))}
-            </select>
           </Field>
 
           {typeKey === "WORKER" && (

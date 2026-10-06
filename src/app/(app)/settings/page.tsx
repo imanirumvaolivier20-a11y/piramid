@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { updateAccountProfile } from "@/actions/account";
+import { removeLogo, updateAccountProfile, updateLogo } from "@/actions/account";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Card, Field, PageHeader, inputClass } from "@/components/ui";
+import { Avatar, Card, Field, PageHeader, inputClass } from "@/components/ui";
+import { accountImage } from "@/lib/avatar";
 import { requireContext } from "@/lib/session";
 
 export const metadata = { title: "Account · Pyramid" };
@@ -23,6 +24,34 @@ export default async function SettingsPage() {
           </>
         }
       />
+
+      <Card>
+        <h2 className="mb-3 font-semibold">{account.type.canBeHired || account.type.canManageWorkers ? "Logo" : "Picture"}</h2>
+        <div className="flex flex-wrap items-center gap-4">
+          <Avatar src={accountImage(account)} name={account.name} size="lg" />
+          <p className="min-w-0 flex-1 text-sm text-zinc-600">
+            {account.logoKey
+              ? "Your uploaded image is shown on your profile, in search results and on projects."
+              : account.owner.image
+                ? "Showing the photo from your Google account. Upload a logo to replace it."
+                : "No picture yet. Upload a logo, or sign in with Google to use your Google photo."}
+          </p>
+        </div>
+        {ctx.isManager && (
+          <div className="mt-4 flex flex-wrap items-start gap-2">
+            {/* Keyed by the logo so the file input clears after an upload. */}
+            <ActionForm key={account.logoKey ?? "none"} action={updateLogo} className="flex flex-1 flex-wrap items-center gap-2">
+              <input type="file" name="logo" accept="image/png,image/jpeg,image/webp" required className="min-w-0 flex-1 text-sm" />
+              <SubmitButton variant="secondary">Upload</SubmitButton>
+            </ActionForm>
+            {account.logoKey && (
+              <form action={removeLogo}>
+                <SubmitButton variant="danger">{account.owner.image ? "Use Google photo" : "Remove"}</SubmitButton>
+              </form>
+            )}
+          </div>
+        )}
+      </Card>
 
       <Card>
         <h2 className="mb-3 font-semibold">Public profile</h2>

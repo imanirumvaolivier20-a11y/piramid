@@ -17,11 +17,14 @@ export function ReportForm({
   categories,
   currency,
   today,
+  materialNames = [],
 }: {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   categories: Category[];
   currency: string;
   today: string;
+  /** Material names already on the project, suggested so the stock totals line up. */
+  materialNames?: string[];
 }) {
   const [state, formAction] = useActionState(action, {});
 
@@ -57,6 +60,11 @@ export function ReportForm({
 
   return (
     <form action={formAction} className="space-y-6">
+      <datalist id="report-material-names">
+        {materialNames.map((name) => (
+          <option key={name} value={name} />
+        ))}
+      </datalist>
       <input type="hidden" name="materials" value={JSON.stringify(materials)} />
       <input type="hidden" name="wages" value={JSON.stringify(usedWages)} />
 
@@ -102,6 +110,7 @@ export function ReportForm({
             <div key={index} className="grid grid-cols-[1fr_5rem_5rem_2.75rem] gap-2">
               <input
                 aria-label="Material"
+                list="report-material-names"
                 placeholder="Cement"
                 value={material.name}
                 onChange={(e) => updateMaterial(index, { name: e.target.value })}

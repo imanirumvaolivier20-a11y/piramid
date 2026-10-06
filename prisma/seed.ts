@@ -278,6 +278,90 @@ async function main() {
     ).map((expense) => ({ ...expense, projectId: house.id })),
   });
 
+  // Material requests: one delivered (with a short count), one approved by
+  // the company itself, one waiting for the owner.
+  const delivered = await prisma.materialRequest.create({
+    data: {
+      projectId: house.id,
+      number: 1,
+      fromAccountId: company.id,
+      toAccountId: homeowner.id,
+      status: "RECEIVED",
+      note: "For the foundation concrete.",
+      requestedById: eric.id,
+      createdAt: daysAgo(5),
+      decidedById: aline.id,
+      decidedAt: daysAgo(4),
+      receivedById: claude.id,
+      receivedAt: daysAgo(3),
+      receivedNote: "One bag of cement arrived torn.",
+      items: {
+        create: [
+          { name: "Cement", details: "CIMERWA 42.5R, 50 kg bags", quantity: 25, unit: "bags", unitPrice: 11500, receivedQuantity: 24, sortOrder: 0 },
+          { name: "Sand", details: "Washed river sand", quantity: 4, unit: "m³", unitPrice: 25000, receivedQuantity: 4, sortOrder: 1 },
+          { name: "Gravel", details: "Crushed 20 mm", quantity: 4, unit: "m³", unitPrice: 30000, receivedQuantity: 4, sortOrder: 2 },
+        ],
+      },
+    },
+  });
+  await prisma.expense.create({
+    data: {
+      projectId: house.id,
+      accountId: homeowner.id,
+      category: "MATERIALS",
+      amount: 24 * 11500 + 4 * 25000 + 4 * 30000,
+      date: daysAgo(3),
+      note: "Material request #1",
+      materialRequestId: delivered.id,
+      createdById: claude.id,
+    },
+  });
+  await prisma.materialRequest.create({
+    data: {
+      projectId: house.id,
+      number: 2,
+      fromAccountId: company.id,
+      toAccountId: company.id,
+      status: "APPROVED",
+      requestedById: claude.id,
+      createdAt: daysAgo(2),
+      decidedById: eric.id,
+      decidedAt: daysAgo(1),
+      decisionNote: "We pay for these ourselves.",
+      items: {
+        create: [{ name: "Foundation stones", quantity: 3, unit: "trucks", unitPrice: 120000, sortOrder: 0 }],
+      },
+    },
+  });
+  await prisma.materialRequest.create({
+    data: {
+      projectId: house.id,
+      number: 3,
+      fromAccountId: company.id,
+      toAccountId: homeowner.id,
+      requestedById: eric.id,
+      neededBy: daysAgo(-4),
+      note: "Needed before we start the ring beam.",
+      items: {
+        create: [
+          { name: "Iron bars", details: "Y12, 12 m long", quantity: 40, unit: "pcs", unitPrice: 9500, sortOrder: 0 },
+          { name: "Binding wire", quantity: 5, unit: "kg", sortOrder: 1 },
+        ],
+      },
+    },
+  });
+  await prisma.expense.create({
+    data: {
+      projectId: house.id,
+      accountId: company.id,
+      category: "SALARIES",
+      amount: 400000,
+      date: daysAgo(1),
+      note: "Site engineer, monthly salary",
+      createdById: eric.id,
+    },
+  });
+
   console.log(
     "Seeded demo data. Development logins: owner@demo.test, company@demo.test, engineer@demo.test, worker@demo.test",
   );

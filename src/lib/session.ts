@@ -28,7 +28,7 @@ export const requireContext = cache(async () => {
   const user = await requireUser();
   const memberships = await prisma.membership.findMany({
     where: { userId: user.id },
-    include: { account: { include: { type: true } } },
+    include: { account: { include: { type: true, owner: { select: { image: true } } } } },
     orderBy: { createdAt: "asc" },
   });
   if (memberships.length === 0) redirect("/onboarding");

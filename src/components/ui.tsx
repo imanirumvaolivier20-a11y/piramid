@@ -54,6 +54,7 @@ const badgeTones = {
   green: "bg-emerald-100 text-emerald-800",
   amber: "bg-amber-100 text-amber-900",
   blue: "bg-sky-100 text-sky-800",
+  red: "bg-red-100 text-red-800",
 };
 
 export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: keyof typeof badgeTones }) {
@@ -70,5 +71,34 @@ export function EmptyState({ title, children }: { title: string; children?: Reac
       <p className="font-medium text-zinc-800">{title}</p>
       {children && <div className="mt-1 text-sm text-zinc-600">{children}</div>}
     </div>
+  );
+}
+
+const avatarSizes = { sm: "h-7 w-7 text-xs", md: "h-10 w-10 text-sm", lg: "h-16 w-16 text-xl" };
+
+/** A logo or profile photo, falling back to initials. */
+export function Avatar({ src, name, size = "md" }: { src: string | null; name: string; size?: keyof typeof avatarSizes }) {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0]!.toUpperCase())
+    .join("");
+  return src ? (
+    // Logos come from an authenticated route and Google photos from Google, so next/image is not used.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      referrerPolicy="no-referrer"
+      className={`${avatarSizes[size]} shrink-0 rounded-full border border-zinc-200 bg-white object-cover`}
+    />
+  ) : (
+    <span
+      aria-hidden
+      className={`${avatarSizes[size]} flex shrink-0 items-center justify-center rounded-full bg-amber-100 font-semibold text-amber-900`}
+    >
+      {initials}
+    </span>
   );
 }

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { switchAccount } from "@/actions/account";
 import { signOutAction } from "@/actions/auth";
 import { MainNav } from "@/components/nav-links";
+import { Avatar } from "@/components/ui";
+import { accountImage } from "@/lib/avatar";
 import { requireContext } from "@/lib/session";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
@@ -24,6 +26,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           <MainNav links={links} />
 
           <div className="ml-auto flex min-w-0 items-center gap-2">
+            <Avatar src={accountImage(ctx.account)} name={ctx.account.name} size="sm" />
             {ctx.memberships.length > 1 ? (
               <form action={switchAccount}>
                 <select

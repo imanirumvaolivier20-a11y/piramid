@@ -10,7 +10,7 @@ export default async function DashboardPage() {
   const ctx = await requireContext();
   const { account } = ctx;
 
-  const [owned, hires, assignments] = await Promise.all([
+  const [owned, hires, assignments, toApprove] = await Promise.all([
     ctx.db.project.findMany({
       where: { accountId: account.id },
       include: {
@@ -29,6 +29,13 @@ export default async function DashboardPage() {
       include: { project: true },
       orderBy: { createdAt: "desc" },
     }),
+    ctx.isManager
+      ? ctx.db.materialRequest.findMany({
+          where: { toAccountId: account.id, status: "SUBMITTED" },
+          include: { project: true, requestedBy: true, _count: { select: { items: true } } },
+          orderBy: { createdAt: "asc" },
+        })
+      : Promise.resolve([]),
   ]);
 
   const canCreate = account.type.canOwnProjects && ctx.isManager;
@@ -56,6 +63,28 @@ export default async function DashboardPage() {
               ? "Projects appear here when an owner hires you."
               : "Projects appear here when a company assigns you to one."}
         </EmptyState>
+      )}
+
+      {toApprove.length > 0 && (
+        <section className="mb-8">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-500">Material requests waiting for you</h2>
+          <ul className="divide-y divide-zinc-200 rounded-xl border border-amber-300 bg-white">
+            {toApprove.map((request) => (
+              <li key={request.id}>
+                <Link
+                  href={`/projects/${request.projectId}/materials/${request.id}`}
+                  className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm hover:bg-zinc-50"
+                >
+                  <span className="text-zinc-900">
+                    <strong>{request.project.name}</strong> · #{request.number} · {request._count.items}{" "}
+                    {request._count.items === 1 ? "item" : "items"} from {request.requestedBy.name ?? request.requestedBy.email}
+                  </span>
+                  <span className="text-zinc-500">{formatDate(request.createdAt)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {hires.length > 0 && (

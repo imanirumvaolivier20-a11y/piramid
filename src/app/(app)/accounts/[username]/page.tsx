@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { hireContractor } from "@/actions/contracts";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Badge, Card, Field, inputClass } from "@/components/ui";
+import { Avatar, Badge, Card, Field, inputClass } from "@/components/ui";
+import { accountImage } from "@/lib/avatar";
 import { getProjectAccess } from "@/lib/access";
 import { prisma } from "@/lib/db";
 import { engagementModels } from "@/lib/labels";
@@ -22,7 +23,7 @@ export default async function AccountProfilePage({
 
   const account = await prisma.account.findUnique({
     where: { username },
-    include: { type: true, _count: { select: { contractsAsContractor: { where: { status: { in: ["ACTIVE", "ENDED"] } } } } } },
+    include: { type: true, owner: { select: { image: true } }, _count: { select: { contractsAsContractor: { where: { status: { in: ["ACTIVE", "ENDED"] } } } } } },
   });
   if (!account) notFound();
 
@@ -39,9 +40,12 @@ export default async function AccountProfilePage({
 
       <Card>
         <div className="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">{account.name}</h1>
-            <p className="text-sm text-zinc-600">@{account.username}</p>
+          <div className="flex min-w-0 items-center gap-3">
+            <Avatar src={accountImage(account)} name={account.name} size="lg" />
+            <div className="min-w-0">
+              <h1 className="text-2xl font-semibold tracking-tight">{account.name}</h1>
+              <p className="text-sm text-zinc-600">@{account.username}</p>
+            </div>
           </div>
           <Badge>{account.type.label}</Badge>
         </div>

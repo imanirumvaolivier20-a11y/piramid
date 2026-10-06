@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Badge, EmptyState, buttonClass } from "@/components/ui";
 import { getProjectAccess } from "@/lib/access";
 import { formatDate, formatDateTime, formatMoney, formatQuantity } from "@/lib/format";
-import { engagementModels, expenseCategoryLabels } from "@/lib/labels";
+import { engagementModels, expenseCategoryLabels, materialRequestStatus } from "@/lib/labels";
 import { requireContext } from "@/lib/session";
 
 /** The project's activity feed: its "commit history". */
@@ -12,7 +12,7 @@ export default async function ProjectActivityPage({ params }: { params: Promise<
   const { project, can } = await getProjectAccess(ctx, id);
   const currency = project.account.currency;
 
-  const [reports, expenses, contracts] = await Promise.all([
+  const [reports, expenses, contracts, requests] = await Promise.all([
     ctx.db.dailyReport.findMany({
       where: { projectId: id },
       include: { photos: true, materials: true, wages: true, createdBy: true, account: true },
@@ -21,7 +21,12 @@ export default async function ProjectActivityPage({ params }: { params: Promise<
       ? ctx.db.expense.findMany({ where: { projectId: id }, include: { createdBy: true } })
       : Promise.resolve([]),
     ctx.db.contract.findMany({ where: { projectId: id }, include: { contractor: true } }),
+    ctx.db.materialRequest.findMany({
+      where: { projectId: id },
+      include: { items: true, requestedBy: true, toAccount: true },
+    }),
   ]);
+  const dayOf = (date: Date) => new Date(date.toISOString().slice(0, 10));
 
   // Merge everything into one timeline, newest first.
   const events = [
@@ -31,10 +36,11 @@ export default async function ProjectActivityPage({ params }: { params: Promise<
       .filter((contract) => contract.status === "ACTIVE" || contract.status === "ENDED")
       .map((contract) => ({
         kind: "hire" as const,
-        day: new Date(contract.createdAt.toISOString().slice(0, 10)),
+        day: dayOf(contract.createdAt),
         at: contract.createdAt,
         contract,
       })),
+    ...requests.map((request) => ({ kind: "request" as const, day: dayOf(request.createdAt), at: request.createdAt, request })),
   ].sort((a, b) => b.day.getTime() - a.day.getTime() || b.at.getTime() - a.at.getTime());
 
   const days = Map.groupBy(events, (event) => event.day.getTime());
@@ -148,6 +154,24 @@ export default async function ProjectActivityPage({ params }: { params: Promise<
                         </span>
                         <span className="text-zinc-500">· {expense.createdBy.name ?? expense.createdBy.email}</span>
                       </div>
+                    </li>
+                  );
+                }
+
+                if (event.kind === "request") {
+                  const { request } = event;
+                  const status = materialRequestStatus[request.status];
+                  return (
+                    <li key={request.id} className="relative rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm">
+                      <span className="absolute -left-[23px] top-4 h-3 w-3 rounded-full border-2 border-white bg-violet-500" />
+                      <Link href={`/projects/${id}/materials/${request.id}`} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <Badge tone={status.tone}>Materials #{request.number}</Badge>
+                        <span className="text-zinc-900">
+                          <strong>{request.requestedBy.name ?? request.requestedBy.email}</strong> requested{" "}
+                          {request.items.map((item) => item.name).join(", ")} from {request.toAccount.name}
+                        </span>
+                        <span className="text-zinc-500">· {status.label}</span>
+                      </Link>
                     </li>
                   );
                 }

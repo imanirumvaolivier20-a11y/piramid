@@ -18,8 +18,23 @@ Google OAuth · Docker Compose.
 - Expenses with optional receipt photo
 - Worker roster and editable worker categories per account; assigning workers to a project with a role
 - Row-level security in PostgreSQL as a backstop against cross-tenant leaks
+- Account logo upload; without one, the owner's Google photo is shown. All amounts are in RWF.
 
-Not built yet (later phases): material requests and stock, attendance and payroll.
+## What Phase 2 includes
+
+- Material requests from anyone on a project (owner, hired company/engineer, assigned workers),
+  sent to the project owner or the hired company. Each item has a name, free-text product
+  description, quantity, unit and optional estimated price.
+- The recipient approves (confirming prices) or rejects; the hired company can forward a request
+  from its team to the owner. The requester can cancel while it is pending.
+- Delivery confirmation records counted quantities (discrepancies shown in red) and logs the cost
+  as a materials expense of the paying account.
+- Printable request (browser "Save as PDF") with signature lines.
+- Stock on site: received minus used (from daily reports), matched by material name and unit.
+- Project summary: materials bought, value of materials used and still in stock, wages, salaries,
+  other expenses, total spent, agreed budget progress, and who paid what.
+
+Not built yet (later phases): attendance and payroll, email notifications.
 
 ## Run it locally
 

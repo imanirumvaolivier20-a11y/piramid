@@ -84,6 +84,24 @@ async function main() {
       }),
     ),
   );
+  check("unrelated engineer sees no material requests", (await engineer.materialRequest.count()) === 0);
+  check("unrelated engineer sees no material request items", (await engineer.materialRequestItem.count()) === 0);
+  check("owner sees the material requests on their project", (await owner.materialRequest.count()) === 3);
+  check("hired company sees the material requests on its project", (await company.materialRequest.count()) === 3);
+  check(
+    "unrelated engineer cannot add a material request to the project",
+    await rejects(() =>
+      engineer.materialRequest.create({
+        data: {
+          projectId: house.id,
+          number: 99,
+          fromAccountId: engineerAccount.id,
+          toAccountId: engineerAccount.id,
+          requestedById: user("engineer").id,
+        },
+      }),
+    ),
+  );
   check(
     "engineer's update of someone else's project changes nothing",
     (await engineer.project.updateMany({ where: { id: house.id }, data: { name: "Hijacked" } })).count === 0,

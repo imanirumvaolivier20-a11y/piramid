@@ -2,6 +2,7 @@ import type {
   ContractStatus,
   EngagementModel,
   ExpenseCategory,
+  MaterialRequestStatus,
   ProjectRole,
   ProjectStatus,
 } from "@/generated/prisma/enums";
@@ -41,16 +42,23 @@ export const contractStatusLabels: Record<ContractStatus, string> = {
   ENDED: "Ended",
 };
 
+export const materialRequestStatus: Record<MaterialRequestStatus, { label: string; tone: "neutral" | "green" | "amber" | "blue" | "red" }> = {
+  SUBMITTED: { label: "Waiting for approval", tone: "amber" },
+  APPROVED: { label: "Approved · awaiting delivery", tone: "blue" },
+  REJECTED: { label: "Rejected", tone: "red" },
+  RECEIVED: { label: "Received", tone: "green" },
+  CANCELLED: { label: "Cancelled", tone: "neutral" },
+};
+
 export const expenseCategoryLabels: Record<ExpenseCategory, string> = {
   MATERIALS: "Materials",
-  LABOR: "Labor",
+  SALARIES: "Salaries",
+  LABOR: "Labor (other)",
   TRANSPORT: "Transport",
   EQUIPMENT: "Equipment",
   PERMITS: "Permits & fees",
   OTHER: "Other",
 };
-
-export const currencies = ["RWF", "USD", "EUR", "KES", "UGX", "TZS", "BIF"];
 
 /** Categories every account that manages workers starts with; editable afterwards. */
 export const defaultWorkerCategories = ["Engineer", "Foreman", "Store Keeper", "Builder / Mason", "Aid / Helper"];

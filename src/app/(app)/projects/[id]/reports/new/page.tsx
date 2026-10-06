@@ -14,10 +14,17 @@ export default async function NewReportPage({ params }: { params: Promise<{ id: 
   const access = await getProjectAccess(ctx, id);
   if (!access.can.report) redirect(`/projects/${id}`);
 
-  const categories = await ctx.db.workerCategory.findMany({
-    where: { accountId: access.actingAccountId },
-    orderBy: { createdAt: "asc" },
-  });
+  const [categories, delivered] = await Promise.all([
+    ctx.db.workerCategory.findMany({
+      where: { accountId: access.actingAccountId },
+      orderBy: { createdAt: "asc" },
+    }),
+    ctx.db.materialRequestItem.findMany({
+      where: { request: { projectId: id, status: "RECEIVED" } },
+      select: { name: true },
+      distinct: ["name"],
+    }),
+  ]);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -32,6 +39,7 @@ export default async function NewReportPage({ params }: { params: Promise<{ id: 
           }))}
           currency={access.project.account.currency}
           today={toDateInput(new Date())}
+          materialNames={delivered.map((item) => item.name)}
         />
       </Card>
     </div>

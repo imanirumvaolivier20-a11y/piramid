@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { signOutAction } from "@/actions/auth";
 import { OnboardingForm } from "@/components/onboarding-form";
 import { prisma } from "@/lib/db";
-import { currencies } from "@/lib/labels";
 import { requireUser } from "@/lib/session";
 
 export const metadata = { title: "Welcome · Pyramid" };
@@ -28,7 +27,7 @@ export default async function OnboardingPage() {
       </p>
       <form id="sign-out" action={signOutAction} />
 
-      <OnboardingForm types={types} currencies={currencies} suggestedName={user.name ?? ""} />
+      <OnboardingForm types={types} suggestedName={user.name ?? ""} />
     </main>
   );
 }

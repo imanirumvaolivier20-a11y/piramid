@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { notFound } from "next/navigation";
+import type { ProjectRole } from "@/generated/prisma/enums";
 import type { Ctx } from "@/lib/session";
 
 /**
@@ -9,15 +10,17 @@ import type { Ctx } from "@/lib/session";
  * - OWNER: member of the account that owns the project
  * - CONTRACTOR: member of the hired company/engineer account
  * - WORKER: a roster worker assigned to the project
+ *
+ * Deciding on a material request is per request: see `manages(toAccountId)`.
  */
 export const getProjectAccess = cache(async (ctx: Ctx, projectId: string) => {
   const project = await ctx.db.project.findUnique({
     where: { id: projectId },
     include: {
-      account: { include: { type: true } },
+      account: { include: { type: true, owner: { select: { image: true } } } },
       contracts: {
         where: { status: { in: ["PENDING", "ACTIVE"] } },
-        include: { contractor: { include: { type: true } } },
+        include: { contractor: { include: { type: true, owner: { select: { image: true } } } } },
         orderBy: { createdAt: "desc" },
         take: 1,
       },
@@ -35,7 +38,7 @@ export const getProjectAccess = cache(async (ctx: Ctx, projectId: string) => {
   let level: "OWNER" | "CONTRACTOR" | "WORKER";
   let actingAccountId: string;
   let isManager = false;
-  let reportsAsWorker = false;
+  let workerRole: ProjectRole | null = null;
 
   if (ownerRole) {
     level = "OWNER";
@@ -52,22 +55,44 @@ export const getProjectAccess = cache(async (ctx: Ctx, projectId: string) => {
     if (!assignment) notFound();
     level = "WORKER";
     actingAccountId = assignment.accountId;
-    reportsAsWorker = assignment.role === "ENGINEER" || assignment.role === "FOREMAN";
+    workerRole = assignment.role;
   }
+  const reportsAsWorker = workerRole === "ENGINEER" || workerRole === "FOREMAN";
+  const receivesAsWorker = reportsAsWorker || workerRole === "STORE_KEEPER";
 
   // A contractor only works on the project once the hire is accepted.
   const working = level === "OWNER" || (level === "CONTRACTOR" && contract?.status === "ACTIVE");
+  const activeContract = contract?.status === "ACTIVE" ? contract : null;
+
+  /** True when the user is an owner or admin of the account. */
+  const manages = (accountId: string) => {
+    const role = roleIn(accountId);
+    return role !== null && role !== "MEMBER";
+  };
+
+  // Who a material request can be sent to: the project owner, or the hired company/engineer.
+  const recipients = [
+    { accountId: project.accountId, name: project.account.name, label: "Project owner" },
+    ...(activeContract
+      ? [{ accountId: activeContract.contractorAccountId, name: activeContract.contractor.name, label: "Hired company / engineer" }]
+      : []),
+  ];
 
   return {
     project,
     contract,
     level,
     actingAccountId,
+    workerRole,
+    recipients,
+    manages,
     can: {
       report: working || reportsAsWorker,
       expense: working && isManager,
       team: working && isManager,
       viewMoney: level !== "WORKER",
+      requestMaterials: working || level === "WORKER",
+      receiveMaterials: working || receivesAsWorker,
       hire: level === "OWNER" && isManager && !contract,
       endContract: level === "OWNER" && isManager && !!contract,
       respond: level === "CONTRACTOR" && isManager && contract?.status === "PENDING",

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 // Files live on local disk for now. Everything goes through this module, so
@@ -16,7 +16,7 @@ const CONTENT_TYPES = Object.fromEntries(Object.entries(EXTENSIONS).map(([type, 
 
 export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
-const KEY_PATTERN = /^(reports|receipts)\/[0-9a-f-]{36}\.(jpg|png|webp)$/;
+const KEY_PATTERN = /^(reports|receipts|logos)\/[0-9a-f-]{36}\.(jpg|png|webp)$/;
 
 /** Returns a message if the file is not an acceptable image, otherwise null. */
 export function imageProblem(file: File): string | null {
@@ -25,12 +25,17 @@ export function imageProblem(file: File): string | null {
   return null;
 }
 
-export async function saveImage(file: File, folder: "reports" | "receipts") {
+export async function saveImage(file: File, folder: "reports" | "receipts" | "logos") {
   const key = `${folder}/${randomUUID()}.${EXTENSIONS[file.type]}`;
   const target = path.join(UPLOAD_DIR, key);
   await mkdir(path.dirname(target), { recursive: true });
   await writeFile(target, Buffer.from(await file.arrayBuffer()));
   return { key, contentType: file.type, size: file.size };
+}
+
+export async function deleteStored(key: string) {
+  if (!KEY_PATTERN.test(key)) return;
+  await rm(path.join(UPLOAD_DIR, key), { force: true });
 }
 
 export async function readStored(key: string) {

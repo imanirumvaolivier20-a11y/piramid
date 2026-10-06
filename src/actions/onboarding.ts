@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { type ActionState, firstIssue, optional } from "@/lib/action-state";
 import { prisma } from "@/lib/db";
-import { currencies, defaultWorkerCategories } from "@/lib/labels";
+import { defaultWorkerCategories } from "@/lib/labels";
 import { ACTIVE_ACCOUNT_COOKIE, requireUser } from "@/lib/session";
 
 const schema = z.object({
@@ -17,7 +17,6 @@ const schema = z.object({
     .trim()
     .toLowerCase()
     .regex(/^[a-z0-9][a-z0-9-]{2,29}$/, "Username must be 3–30 characters: lowercase letters, numbers and dashes."),
-  currency: z.string().refine((c) => currencies.includes(c), "Choose a currency."),
   inviteCode: z.string().trim().toUpperCase().optional(),
 });
 
@@ -33,7 +32,6 @@ export async function completeOnboarding(_prev: ActionState, formData: FormData)
     typeKey: optional(formData.get("typeKey")),
     name: formData.get("name"),
     username: formData.get("username"),
-    currency: formData.get("currency"),
     inviteCode: optional(formData.get("inviteCode")),
   });
   if (!parsed.success) return firstIssue(parsed.error);
@@ -60,7 +58,6 @@ export async function completeOnboarding(_prev: ActionState, formData: FormData)
         typeKey: type.key,
         name: input.name,
         username: input.username,
-        currency: input.currency,
         email: user.email,
         ownerId: user.id,
         inviteCode: type.canManageWorkers ? newInviteCode() : null,

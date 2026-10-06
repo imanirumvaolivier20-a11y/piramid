@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getProjectAccess } from "@/lib/access";
 import { type ActionState, firstIssue } from "@/lib/action-state";
 import { fromDateInput } from "@/lib/format";
+import { parseJsonList } from "@/lib/json";
 import { requireContext } from "@/lib/session";
 import { imageProblem, saveImage } from "@/lib/storage";
 
@@ -34,15 +35,6 @@ const schema = z.object({
     )
     .max(30),
 });
-
-function parseJsonList(value: FormDataEntryValue | null) {
-  try {
-    const list = JSON.parse(String(value ?? "[]"));
-    return Array.isArray(list) ? list : [];
-  } catch {
-    return [];
-  }
-}
 
 export async function createDailyReport(
   projectId: string,

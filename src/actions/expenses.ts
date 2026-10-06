@@ -9,7 +9,7 @@ import { requireContext } from "@/lib/session";
 import { imageProblem, saveImage } from "@/lib/storage";
 
 const schema = z.object({
-  category: z.enum(["MATERIALS", "LABOR", "TRANSPORT", "EQUIPMENT", "PERMITS", "OTHER"], {
+  category: z.enum(["MATERIALS", "SALARIES", "LABOR", "TRANSPORT", "EQUIPMENT", "PERMITS", "OTHER"], {
     error: "Choose a category.",
   }),
   amount: z.coerce.number("Enter the amount as a number.").positive("Enter an amount above zero."),

@@ -3,7 +3,8 @@ import Link from "next/link";
 import { endContract, respondToHire } from "@/actions/contracts";
 import { SubmitButton } from "@/components/forms";
 import { Tabs } from "@/components/nav-links";
-import { Badge } from "@/components/ui";
+import { Avatar, Badge } from "@/components/ui";
+import { accountImage } from "@/lib/avatar";
 import { getProjectAccess } from "@/lib/access";
 import { formatMoney } from "@/lib/format";
 import { engagementModels, projectStatusLabels } from "@/lib/labels";
@@ -23,7 +24,13 @@ export default async function ProjectLayout({
 
   const tabs = [
     { href: base, label: "Activity", exact: true },
-    ...(can.viewMoney ? [{ href: `${base}/expenses`, label: "Expenses" }] : []),
+    { href: `${base}/materials`, label: "Materials" },
+    ...(can.viewMoney
+      ? [
+          { href: `${base}/expenses`, label: "Expenses" },
+          { href: `${base}/summary`, label: "Summary" },
+        ]
+      : []),
     { href: `${base}/team`, label: "Team" },
   ];
 
@@ -46,7 +53,9 @@ export default async function ProjectLayout({
       <div className="mb-4 rounded-xl border border-zinc-200 bg-white p-4 text-sm">
         {contract ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
+            <div className="flex min-w-0 items-start gap-3">
+              <Avatar src={accountImage(contract.contractor)} name={contract.contractor.name} />
+              <div className="min-w-0">
               <p className="text-zinc-900">
                 {contract.status === "PENDING" ? "Hire request sent to " : "Managed by "}
                 <Link href={`/accounts/${contract.contractor.username}`} className="font-semibold underline">
@@ -61,6 +70,7 @@ export default async function ProjectLayout({
                   ` · Agreed budget ${formatMoney(contract.agreedBudget, project.account.currency)}`}
               </p>
               {contract.note && <p className="mt-1 text-zinc-600">“{contract.note}”</p>}
+              </div>
             </div>
             <div className="flex flex-wrap gap-2">
               {can.respond && (
