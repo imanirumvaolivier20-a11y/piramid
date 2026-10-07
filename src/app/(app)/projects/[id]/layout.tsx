@@ -25,6 +25,7 @@ export default async function ProjectLayout({
   const tabs = [
     { href: base, label: "Summary", exact: true },
     { href: `${base}/activity`, label: "Activity" },
+    { href: `${base}/attendance`, label: "Attendance" },
     { href: `${base}/materials`, label: "Materials" },
     ...(can.viewMoney ? [{ href: `${base}/expenses`, label: "Expenses" }] : []),
     { href: `${base}/team`, label: "Team" },

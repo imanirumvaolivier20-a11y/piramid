@@ -2,9 +2,10 @@ import Link from "next/link";
 import { Card, buttonClass } from "@/components/ui";
 import type { ExpenseCategory } from "@/generated/prisma/enums";
 import { getProjectAccess } from "@/lib/access";
-import { formatDate, formatMoney, formatQuantity } from "@/lib/format";
+import { formatDate, formatMoney, formatQuantity, fromDateInput, toDateInput } from "@/lib/format";
 import { expenseCategoryLabels } from "@/lib/labels";
 import { buildStock, requestTotal } from "@/lib/materials";
+import { projectWages } from "@/lib/payroll";
 import { requireContext } from "@/lib/session";
 
 export const metadata = { title: "Summary · Pyramid" };
@@ -22,11 +23,13 @@ export default async function ProjectSummaryPage({ params }: { params: Promise<{
   const base = `/projects/${id}`;
   const money = (amount: number) => formatMoney(amount, project.account.currency);
 
-  const [expenses, wages, requests, used, latestReports, reportCount] = await Promise.all([
+  const today = fromDateInput(toDateInput(new Date()));
+  const [expenses, wages, attendance, requests, used, latestReports, reportCount, myTeam, markedToday] = await Promise.all([
     can.viewMoney ? ctx.db.expense.findMany({ where: { projectId: id }, include: { account: true } }) : Promise.resolve([]),
     can.viewMoney
       ? ctx.db.dailyReportWage.findMany({ where: { report: { projectId: id } }, include: { report: { include: { account: true } } } })
       : Promise.resolve([]),
+    can.viewMoney ? ctx.db.attendance.findMany({ where: { projectId: id }, include: { account: true } }) : Promise.resolve([]),
     ctx.db.materialRequest.findMany({ where: { projectId: id }, include: { items: true }, orderBy: { number: "asc" } }),
     ctx.db.dailyReportMaterial.findMany({ where: { report: { projectId: id } } }),
     ctx.db.dailyReport.findMany({
@@ -36,6 +39,12 @@ export default async function ProjectSummaryPage({ params }: { params: Promise<{
       take: 3,
     }),
     ctx.db.dailyReport.count({ where: { projectId: id } }),
+    can.attendance
+      ? ctx.db.projectMember.count({ where: { projectId: id, accountId: access.actingAccountId, worker: { active: true } } })
+      : Promise.resolve(0),
+    can.attendance
+      ? ctx.db.attendance.count({ where: { projectId: id, accountId: access.actingAccountId, date: today } })
+      : Promise.resolve(0),
   ]);
 
   // ── What needs the user's attention ──
@@ -44,8 +53,11 @@ export default async function ProjectSummaryPage({ params }: { params: Promise<{
     (r) => r.status === "APPROVED" && (can.receiveMaterials || access.manages(r.toAccountId)),
   );
   const attention = [
-    ...toDecide.map((r) => ({ id: r.id, text: `Approve or reject material request #${r.number}` })),
-    ...toReceive.map((r) => ({ id: r.id, text: `Confirm delivery of material request #${r.number}` })),
+    ...(myTeam > 0 && markedToday === 0
+      ? [{ id: "attendance", href: `${base}/attendance`, text: "Record today's attendance" }]
+      : []),
+    ...toDecide.map((r) => ({ id: r.id, href: `${base}/materials/${r.id}`, text: `Approve or reject material request #${r.number}` })),
+    ...toReceive.map((r) => ({ id: r.id, href: `${base}/materials/${r.id}`, text: `Confirm delivery of material request #${r.number}` })),
   ];
 
   // ── Money ──
@@ -55,7 +67,8 @@ export default async function ProjectSummaryPage({ params }: { params: Promise<{
   }
   const materials = byCategory.get("MATERIALS") ?? 0;
   const salaries = byCategory.get("SALARIES") ?? 0;
-  const wagesTotal = wages.reduce((sum, wage) => sum + Number(wage.amount), 0);
+  // Attendance replaces daily-report wage lines for the days it covers.
+  const wagesTotal = projectWages(wages, attendance).total;
   const expensesTotal = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
   const otherExpenses = expensesTotal - materials - salaries;
   const spent = expensesTotal + wagesTotal;
@@ -69,7 +82,11 @@ export default async function ProjectSummaryPage({ params }: { params: Promise<{
     paidBy.set(account.id, entry);
   };
   expenses.forEach((expense) => addPaid(expense.account, Number(expense.amount)));
-  wages.forEach((wage) => addPaid(wage.report.account, Number(wage.amount)));
+  const attended = new Set(attendance.map((a) => `${a.accountId}|${a.date.getTime()}`));
+  wages
+    .filter((wage) => !attended.has(`${wage.report.accountId}|${wage.report.date.getTime()}`))
+    .forEach((wage) => addPaid(wage.report.account, Number(wage.amount)));
+  attendance.forEach((day) => addPaid(day.account, Number(day.amount)));
 
   // ── Materials ──
   const stock = buildStock(
@@ -84,13 +101,14 @@ export default async function ProjectSummaryPage({ params }: { params: Promise<{
 
   const lines = [
     { label: "Materials bought", amount: materials, href: `${base}/materials` },
-    { label: "Wages", amount: wagesTotal, href: `${base}/activity` },
+    { label: "Wages", amount: wagesTotal, href: `${base}/attendance` },
     { label: "Salaries", amount: salaries, href: `${base}/expenses` },
     { label: "Other expenses", amount: otherExpenses, href: `${base}/expenses` },
   ];
 
   const actions = [
     can.report && { href: `${base}/reports/new`, label: "New daily report", primary: true },
+    can.attendance && myTeam > 0 && { href: `${base}/attendance`, label: "Attendance", primary: false },
     can.requestMaterials && { href: `${base}/materials/new`, label: "Request materials", primary: !can.report },
     can.expense && { href: `${base}/expenses`, label: "Log an expense", primary: false },
   ].filter((action) => !!action);
@@ -113,7 +131,7 @@ export default async function ProjectSummaryPage({ params }: { params: Promise<{
           <ul className="mt-2 space-y-1">
             {attention.map((item) => (
               <li key={item.id + item.text}>
-                <Link href={`${base}/materials/${item.id}`} className="text-sm font-medium text-amber-900 underline">
+                <Link href={item.href} className="text-sm font-medium text-amber-900 underline">
                   {item.text}
                 </Link>
               </li>
@@ -235,7 +253,7 @@ export default async function ProjectSummaryPage({ params }: { params: Promise<{
                 .map(([category, label]) => (
                   <Row key={category} label={label} value={money(byCategory.get(category as ExpenseCategory) ?? 0)} />
                 ))}
-              <Row label="Wages (daily reports)" value={money(wagesTotal)} />
+              <Row label="Wages (attendance and daily reports)" value={money(wagesTotal)} />
             </dl>
           </Card>
         )}

@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { addCategory, addWorker, removeCategory, removeWorker, setCategoryRate } from "@/actions/workers";
 import { ActionForm, SubmitButton } from "@/components/forms";
 import { Badge, Card, EmptyState, Field, PageHeader, inputClass } from "@/components/ui";
+import { formatMoney } from "@/lib/format";
 import { requireContext } from "@/lib/session";
 
 export const metadata = { title: "Workers · Pyramid" };
@@ -13,7 +15,7 @@ export default async function WorkersPage() {
 
   const [workers, categories] = await Promise.all([
     ctx.db.worker.findMany({
-      where: { accountId: account.id },
+      where: { accountId: account.id, active: true },
       include: { category: true, _count: { select: { assignments: true } } },
       orderBy: { name: "asc" },
     }),
@@ -68,11 +70,19 @@ export default async function WorkersPage() {
                   <li key={worker.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                     <div className="min-w-0">
                       <p className="font-medium text-zinc-900">
-                        {worker.name} {worker.userId && <Badge tone="green">Has login</Badge>}
+                        {ctx.isManager ? (
+                          <Link href={`/workers/${worker.id}`} className="underline-offset-2 hover:underline">
+                            {worker.name}
+                          </Link>
+                        ) : (
+                          worker.name
+                        )}{" "}
+                        {worker.userId && <Badge tone="green">Has login</Badge>}
                       </p>
                       <p className="truncate text-zinc-500">
                         {[
                           worker.category?.name,
+                          worker.dailyRate !== null && `${formatMoney(Number(worker.dailyRate), account.currency)}/day`,
                           worker.phone,
                           worker.email,
                           `${worker._count.assignments} ${worker._count.assignments === 1 ? "project" : "projects"}`,
@@ -97,7 +107,8 @@ export default async function WorkersPage() {
           <section>
             <h2 className="font-semibold">Worker categories</h2>
             <p className="mb-3 text-sm text-zinc-600">
-              Used for wages in daily reports. Daily rates are in {account.currency} and pre-fill the wage lines.
+              Daily rates (in {account.currency}) set what attendance earns, unless a worker has a personal rate. They also
+              pre-fill the wage lines of daily reports.
             </p>
             <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white">
               {categories.map((category) => (

@@ -9,10 +9,14 @@ import { requireContext } from "@/lib/session";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const ctx = await requireContext();
+  const isEmployed = (await ctx.db.worker.count({ where: { userId: ctx.user.id } })) > 0;
+  const managesWorkers = ctx.account.type.canManageWorkers;
 
   const links = [
     { href: "/dashboard", label: "Projects" },
-    ...(ctx.account.type.canManageWorkers ? [{ href: "/workers", label: "Workers" }] : []),
+    ...(managesWorkers ? [{ href: "/workers", label: "Workers" }] : []),
+    ...(managesWorkers && ctx.isManager ? [{ href: "/payroll", label: "Payroll" }] : []),
+    ...(isEmployed ? [{ href: "/my-pay", label: "My pay" }] : []),
     { href: "/settings", label: "Account" },
   ];
 

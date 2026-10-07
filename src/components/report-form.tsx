@@ -156,6 +156,9 @@ export function ReportForm({
 
       <fieldset>
         <legend className="mb-2 text-sm font-medium text-zinc-700">Wages for the day, by category ({currency})</legend>
+        <p className="mb-2 text-xs text-zinc-500">
+          If you record attendance for this day, wages are calculated from it and these lines are not counted twice.
+        </p>
         <div className="space-y-2">
           <div className="grid grid-cols-[1fr_5rem_7rem] gap-2 text-xs font-medium text-zinc-500">
             <span>Category</span>

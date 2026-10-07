@@ -34,7 +34,22 @@ Google OAuth · Docker Compose.
 - Project summary: materials bought, value of materials used and still in stock, wages, salaries,
   other expenses, total spent, agreed budget progress, and who paid what.
 
-Not built yet (later phases): attendance and payroll, email notifications.
+Projects open on the Summary page: quick actions, anything waiting on you, totals, latest reports.
+
+## What Phase 3 includes
+
+- Attendance tab: mark each of your workers Present / Half day / Absent per day, with a week overview.
+  A worker is paid once per day even if they move between projects.
+- Wages accrue from attendance at the worker's personal daily rate, or their category's rate.
+  The rate is saved with each day, so changing it later does not rewrite history.
+  Where attendance exists for a day, it replaces the wage lines of that day's daily reports in totals.
+- Pay cycle per account: weekly, every two weeks, or monthly.
+- Payroll page (owners and admins): earned and paid per period, balance owed, one-click Pay.
+- Per-worker pay record: payments and attendance by period with the running balance.
+- "My pay" for workers: what each employer recorded, paid and still owes them.
+- Removing a worker with pay history deactivates them instead of deleting it.
+
+Not built yet: email notifications.
 
 ## Run it locally
 

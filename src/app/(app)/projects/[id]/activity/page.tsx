@@ -14,7 +14,7 @@ export default async function ProjectActivityPage({ params }: { params: Promise<
   const { project, can } = await getProjectAccess(ctx, id);
   const currency = project.account.currency;
 
-  const [reports, expenses, contracts, requests] = await Promise.all([
+  const [reports, expenses, contracts, requests, attendance] = await Promise.all([
     ctx.db.dailyReport.findMany({
       where: { projectId: id },
       include: { photos: true, materials: true, wages: true, createdBy: true, account: true },
@@ -27,7 +27,20 @@ export default async function ProjectActivityPage({ params }: { params: Promise<
       where: { projectId: id },
       include: { items: true, requestedBy: true, toAccount: true },
     }),
+    ctx.db.attendance.findMany({ where: { projectId: id }, include: { account: true } }),
   ]);
+
+  // One attendance entry per day and account.
+  const attendanceDays = [...Map.groupBy(attendance, (a) => `${a.date.getTime()}|${a.accountId}`).values()].map((records) => ({
+    key: `${records[0].date.getTime()}|${records[0].accountId}`,
+    date: records[0].date,
+    at: records.reduce((latest, a) => (a.updatedAt > latest ? a.updatedAt : latest), records[0].updatedAt),
+    account: records[0].account,
+    present: records.filter((a) => a.status === "PRESENT").length,
+    half: records.filter((a) => a.status === "HALF_DAY").length,
+    absent: records.filter((a) => a.status === "ABSENT").length,
+    amount: records.reduce((sum, a) => sum + Number(a.amount), 0),
+  }));
   const dayOf = (date: Date) => new Date(date.toISOString().slice(0, 10));
 
   // Merge everything into one timeline, newest first.
@@ -43,6 +56,7 @@ export default async function ProjectActivityPage({ params }: { params: Promise<
         contract,
       })),
     ...requests.map((request) => ({ kind: "request" as const, day: dayOf(request.createdAt), at: request.createdAt, request })),
+    ...attendanceDays.map((day) => ({ kind: "attendance" as const, day: day.date, at: day.at, attendance: day })),
   ].sort((a, b) => b.day.getTime() - a.day.getTime() || b.at.getTime() - a.at.getTime());
 
   const days = Map.groupBy(events, (event) => event.day.getTime());
@@ -156,6 +170,30 @@ export default async function ProjectActivityPage({ params }: { params: Promise<
                         </span>
                         <span className="text-zinc-500">· {expense.createdBy.name ?? expense.createdBy.email}</span>
                       </div>
+                    </li>
+                  );
+                }
+
+                if (event.kind === "attendance") {
+                  const { attendance: day } = event;
+                  return (
+                    <li key={day.key} className="relative rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm">
+                      <span className="absolute -left-[23px] top-4 h-3 w-3 rounded-full border-2 border-white bg-emerald-600" />
+                      <Link
+                        href={`/projects/${id}/attendance?date=${day.date.toISOString().slice(0, 10)}`}
+                        className="flex flex-wrap items-center gap-x-2 gap-y-1"
+                      >
+                        <Badge tone="green">Attendance</Badge>
+                        <span className="text-zinc-900">
+                          {day.present} present
+                          {day.half > 0 && ` · ${day.half} half day`}
+                          {day.absent > 0 && ` · ${day.absent} absent`}
+                        </span>
+                        <span className="text-zinc-500">
+                          · {day.account.name}
+                          {can.viewMoney && ` · wages ${formatMoney(day.amount, currency)}`}
+                        </span>
+                      </Link>
                     </li>
                   );
                 }

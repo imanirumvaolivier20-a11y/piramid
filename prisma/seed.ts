@@ -25,6 +25,9 @@ function daysAgo(days: number) {
 
 async function reset() {
   const demoUsers = { email: { endsWith: "@demo.test" } };
+  // Pay history protects workers from deletion, so clear it first.
+  await prisma.workerPayment.deleteMany({ where: { account: { owner: demoUsers } } });
+  await prisma.attendance.deleteMany({ where: { account: { owner: demoUsers } } });
   await prisma.project.deleteMany({ where: { account: { owner: demoUsers } } });
   await prisma.account.deleteMany({ where: { owner: demoUsers } });
   await prisma.user.deleteMany({ where: demoUsers });
@@ -358,6 +361,45 @@ async function main() {
       amount: 400000,
       date: daysAgo(1),
       note: "Site engineer, monthly salary",
+      createdById: eric.id,
+    },
+  });
+
+  // Attendance for the last six days, and one payment for last week.
+  const rates = new Map(CATEGORIES.map((c) => [c.name, c.dailyRate]));
+  await prisma.worker.update({ where: { id: roster[0].id }, data: { dailyRate: 13000 } });
+  const crew = [
+    { worker: roster[0], rate: 13000, pattern: "PPPPPP" },
+    { worker: roster[1], rate: rates.get("Store Keeper")!, pattern: "PPHPPP" },
+    { worker: roster[2], rate: rates.get("Builder / Mason")!, pattern: "PAPPPH" },
+    { worker: roster[4], rate: rates.get("Aid / Helper")!, pattern: "PPPAPP" },
+  ];
+  const statusOf = { P: "PRESENT", H: "HALF_DAY", A: "ABSENT" } as const;
+  const share = { P: 1, H: 0.5, A: 0 } as const;
+  await prisma.attendance.createMany({
+    data: crew.flatMap(({ worker, rate, pattern }) =>
+      [...pattern].map((code, index) => {
+        const key = code as keyof typeof statusOf;
+        return {
+          projectId: house.id,
+          workerId: worker.id,
+          accountId: company.id,
+          date: daysAgo(6 - index),
+          status: statusOf[key],
+          rate,
+          amount: rate * share[key],
+          recordedById: claude.id,
+        };
+      }),
+    ),
+  });
+  await prisma.workerPayment.create({
+    data: {
+      accountId: company.id,
+      workerId: roster[2].id,
+      amount: 14000,
+      date: daysAgo(2),
+      note: "Cash, advance",
       createdById: eric.id,
     },
   });

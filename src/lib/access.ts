@@ -93,6 +93,8 @@ export const getProjectAccess = cache(async (ctx: Ctx, projectId: string) => {
       viewMoney: level !== "WORKER",
       requestMaterials: working || level === "WORKER",
       receiveMaterials: working || receivesAsWorker,
+      /** Records attendance for the acting account's workers on this project. */
+      attendance: working || receivesAsWorker,
       hire: level === "OWNER" && isManager && !contract,
       endContract: level === "OWNER" && isManager && !!contract,
       respond: level === "CONTRACTOR" && isManager && contract?.status === "PENDING",

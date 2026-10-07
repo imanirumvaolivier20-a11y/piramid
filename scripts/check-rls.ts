@@ -102,6 +102,42 @@ async function main() {
       }),
     ),
   );
+  const worker = dbFor(user("worker").id);
+  const claudeRow = await prisma.worker.findFirstOrThrow({ where: { userId: user("worker").id } });
+  check("unrelated engineer sees no attendance", (await engineer.attendance.count()) === 0);
+  check("unrelated engineer sees no worker payments", (await engineer.workerPayment.count()) === 0);
+  check("owner sees attendance on their project", (await owner.attendance.count()) === 24);
+  check("owner cannot see the company's worker payments", (await owner.workerPayment.count()) === 0);
+  check("company owner sees its worker payments", (await company.workerPayment.count()) === 1);
+  check(
+    "a plain member sees only their own payments",
+    (await worker.workerPayment.count({ where: { workerId: { not: claudeRow.id } } })) === 0,
+  );
+  check(
+    "a plain member cannot record a payment",
+    await rejects(() =>
+      worker.workerPayment.create({
+        data: { accountId: companyAccount.id, workerId: claudeRow.id, amount: 1, date: new Date(), createdById: user("worker").id },
+      }),
+    ),
+  );
+  check(
+    "unrelated engineer cannot record attendance on the project",
+    await rejects(() =>
+      engineer.attendance.create({
+        data: {
+          projectId: house.id,
+          workerId: claudeRow.id,
+          accountId: companyAccount.id,
+          date: new Date("2020-01-01"),
+          status: "PRESENT",
+          rate: 1,
+          amount: 1,
+          recordedById: user("engineer").id,
+        },
+      }),
+    ),
+  );
   check(
     "engineer's update of someone else's project changes nothing",
     (await engineer.project.updateMany({ where: { id: house.id }, data: { name: "Hijacked" } })).count === 0,

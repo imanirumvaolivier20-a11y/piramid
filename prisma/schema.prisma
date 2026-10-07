@@ -24,9 +24,11 @@ model User {
   dailyReports  DailyReport[]
   expenses      Expense[]
 
-  materialRequests  MaterialRequest[] @relation("RequestedBy")
-  materialDecisions MaterialRequest[] @relation("DecidedBy")
-  materialReceipts  MaterialRequest[] @relation("ReceivedBy")
+  materialRequests   MaterialRequest[] @relation("RequestedBy")
+  materialDecisions  MaterialRequest[] @relation("DecidedBy")
+  materialReceipts   MaterialRequest[] @relation("ReceivedBy")
+  attendanceRecorded Attendance[]
+  workerPayments     WorkerPayment[]
 }
 
 /// Lookup table of account types. New types (supplier, architect, ...) are
@@ -60,6 +62,8 @@ model Account {
   currency   String   @default("RWF")
   /// Storage key of the uploaded logo. Without one, the owner's Google photo is shown.
   logoKey    String?  @unique
+  /// How often workers are paid; payroll groups attendance by this period.
+  payCycle   PayCycle @default(WEEKLY)
   /// Lets workers join a company account.
   inviteCode String?  @unique
   ownerId    String
@@ -80,6 +84,8 @@ model Account {
   projectMembers        ProjectMember[]
   materialRequestsSent  MaterialRequest[] @relation("RequestFrom")
   materialRequestsTo    MaterialRequest[] @relation("RequestTo")
+  attendance            Attendance[]
+  workerPayments        WorkerPayment[]
 
   @@index([typeKey])
 }
@@ -133,6 +139,7 @@ model Project {
   reports          DailyReport[]
   expenses         Expense[]
   materialRequests MaterialRequest[]
+  attendance       Attendance[]
 
   @@index([accountId])
 }
@@ -202,6 +209,9 @@ model Worker {
   phone      String?
   email      String?
   userId     String?
+  /// Personal daily wage; overrides the category's rate when set.
+  dailyRate  Decimal? @db.Decimal(14, 2)
+  /// Removed workers with pay history are deactivated, never deleted.
   active     Boolean  @default(true)
   createdAt  DateTime @default(now())
 
@@ -209,6 +219,8 @@ model Worker {
   category    WorkerCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
   user        User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
   assignments ProjectMember[]
+  attendance  Attendance[]
+  payments    WorkerPayment[]
 
   @@index([accountId])
   @@index([userId])
@@ -404,4 +416,67 @@ model MaterialRequestItem {
   request MaterialRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   @@index([requestId])
+}
+
+enum PayCycle {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+enum AttendanceStatus {
+  PRESENT
+  HALF_DAY
+  ABSENT
+}
+
+/// One worker's attendance on one day. The wage is accrued from it, using the
+/// daily rate in force when it was recorded.
+model Attendance {
+  id           String           @id @default(cuid())
+  projectId    String
+  workerId     String
+  /// The worker's roster account, which owes the wage.
+  accountId    String
+  date         DateTime         @db.Date
+  status       AttendanceStatus
+  /// Daily rate snapshot, so later rate changes do not rewrite history.
+  rate         Decimal          @db.Decimal(14, 2)
+  /// Wage earned: the rate for a full day, half of it for a half day, 0 if absent.
+  amount       Decimal          @db.Decimal(14, 2)
+  recordedById String
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  worker     Worker  @relation(fields: [workerId], references: [id], onDelete: Restrict)
+  account    Account @relation(fields: [accountId], references: [id])
+  recordedBy User    @relation(fields: [recordedById], references: [id])
+
+  /// A worker is paid once per day, whichever project they were on.
+  @@unique([workerId, date])
+  @@index([projectId, date])
+  @@index([accountId, date])
+}
+
+/// Money paid to a worker. Balance owed = attendance earned - payments.
+model WorkerPayment {
+  id          String    @id @default(cuid())
+  accountId   String
+  workerId    String
+  amount      Decimal   @db.Decimal(14, 2)
+  date        DateTime  @db.Date
+  /// The pay period this payment settles, when paid from payroll.
+  periodStart DateTime? @db.Date
+  periodEnd   DateTime? @db.Date
+  note        String?
+  createdById String
+  createdAt   DateTime  @default(now())
+
+  account   Account @relation(fields: [accountId], references: [id])
+  worker    Worker  @relation(fields: [workerId], references: [id], onDelete: Restrict)
+  createdBy User    @relation(fields: [createdById], references: [id])
+
+  @@index([workerId, date])
+  @@index([accountId, date])
 }

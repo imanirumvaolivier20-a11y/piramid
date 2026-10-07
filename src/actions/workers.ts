@@ -52,8 +52,21 @@ export async function addWorker(_prev: ActionState, formData: FormData): Promise
 export async function removeWorker(workerId: string) {
   const { ctx, allowed } = await requireRosterManager();
   if (!allowed) return;
-  await ctx.db.worker.deleteMany({ where: { id: workerId, accountId: ctx.account.id } });
+  const where = { id: workerId, accountId: ctx.account.id };
+  const history = await ctx.db.worker.findFirst({
+    where,
+    select: { _count: { select: { attendance: true, payments: true } } },
+  });
+  if (!history) return;
+  if (history._count.attendance + history._count.payments > 0) {
+    // Keep their pay history: take them off the roster and their projects instead.
+    await ctx.db.worker.updateMany({ where, data: { active: false } });
+    await ctx.db.projectMember.deleteMany({ where: { workerId } });
+  } else {
+    await ctx.db.worker.deleteMany({ where });
+  }
   revalidatePath("/workers");
+  revalidatePath("/payroll");
 }
 
 // ───────────── Categories ─────────────

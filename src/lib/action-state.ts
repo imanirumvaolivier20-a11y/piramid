@@ -1,7 +1,7 @@
 import type { ZodError } from "zod";
 
 /** What form actions return to useActionState. */
-export type ActionState = { error?: string };
+export type ActionState = { error?: string; success?: string };
 
 export function firstIssue(error: ZodError): ActionState {
   return { error: error.issues[0]?.message ?? "Please check the form." };
