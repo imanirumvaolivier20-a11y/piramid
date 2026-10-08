@@ -396,6 +396,7 @@ async function main() {
   await prisma.workerPayment.create({
     data: {
       accountId: company.id,
+      projectId: house.id,
       workerId: roster[2].id,
       amount: 14000,
       date: daysAgo(2),

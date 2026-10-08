@@ -49,6 +49,15 @@ Projects open on the Summary page: quick actions, anything waiting on you, total
 - "My pay" for workers: what each employer recorded, paid and still owes them.
 - Removing a worker with pay history deactivates them instead of deleting it.
 
+## Navigation
+
+The main menu has only **Projects** and **Account** (a bottom bar on phones). Projects are listed
+like chats: latest activity, time, and a badge for things waiting on you. Inside a project, its own
+tabs are Home, Activity, Materials, Workers (Attendance / Team / Payroll / My pay) and Money.
+Each project has its own team and payroll; payments are recorded per project. Less frequent
+actions sit behind "⋮" menus, and each screen's main action is the round button in the corner.
+Account-wide worker categories, daily rates and pay cycle live under Account ⋮.
+
 Not built yet: email notifications.
 
 ## Run it locally

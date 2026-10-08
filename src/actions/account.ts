@@ -9,9 +9,8 @@ import { prisma } from "@/lib/db";
 import { ACTIVE_ACCOUNT_COOKIE, requireContext } from "@/lib/session";
 import { deleteStored, imageProblem, saveImage } from "@/lib/storage";
 
-export async function switchAccount(formData: FormData) {
+export async function switchAccount(accountId: string) {
   const ctx = await requireContext();
-  const accountId = String(formData.get("accountId"));
   if (ctx.memberships.some((m) => m.accountId === accountId)) {
     (await cookies()).set(ACTIVE_ACCOUNT_COOKIE, accountId, {
       httpOnly: true,
@@ -50,7 +49,7 @@ export async function updateAccountProfile(_prev: ActionState, formData: FormDat
     data: { name, email: email ?? null, phone: phone ?? null, location: location ?? null, bio: bio ?? null },
   });
   revalidatePath("/", "layout");
-  return {};
+  return { success: "Profile saved." };
 }
 
 export async function updateLogo(_prev: ActionState, formData: FormData): Promise<ActionState> {

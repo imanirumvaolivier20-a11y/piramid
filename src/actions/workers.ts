@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getProjectAccess } from "@/lib/access";
 import { type ActionState, firstIssue, optional } from "@/lib/action-state";
-import { prisma } from "@/lib/db";
 import { requireContext } from "@/lib/session";
 
 async function requireRosterManager() {
@@ -14,40 +14,6 @@ async function requireRosterManager() {
 }
 
 // ───────────── Roster ─────────────
-
-const workerSchema = z.object({
-  name: z.string().trim().min(2, "Enter the worker's name.").max(80),
-  categoryId: z.string().optional(),
-  phone: z.string().max(30).optional(),
-  email: z.email("Enter a valid email address.").optional(),
-});
-
-export async function addWorker(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const { ctx, allowed } = await requireRosterManager();
-  if (!allowed) return { error: "You cannot manage this account's workers." };
-
-  const parsed = workerSchema.safeParse({
-    name: formData.get("name"),
-    categoryId: optional(formData.get("categoryId")),
-    phone: optional(formData.get("phone")),
-    email: optional(formData.get("email"))?.toLowerCase(),
-  });
-  if (!parsed.success) return firstIssue(parsed.error);
-  const { name, categoryId, phone, email } = parsed.data;
-
-  if (categoryId) {
-    const category = await ctx.db.workerCategory.findFirst({ where: { id: categoryId, accountId: ctx.account.id } });
-    if (!category) return { error: "Choose one of your categories." };
-  }
-  // If the worker already has a login with this email, link it so they can see their projects.
-  const user = email ? await prisma.user.findUnique({ where: { email } }) : null;
-
-  await ctx.db.worker.create({
-    data: { accountId: ctx.account.id, name, categoryId, phone, email, userId: user?.id },
-  });
-  revalidatePath("/workers");
-  return {};
-}
 
 export async function removeWorker(workerId: string) {
   const { ctx, allowed } = await requireRosterManager();
@@ -66,7 +32,7 @@ export async function removeWorker(workerId: string) {
     await ctx.db.worker.deleteMany({ where });
   }
   revalidatePath("/workers");
-  revalidatePath("/payroll");
+  revalidatePath("/my-pay");
 }
 
 // ───────────── Categories ─────────────
@@ -144,8 +110,51 @@ export async function assignWorker(projectId: string, _prev: ActionState, formDa
     update: { role },
     create: { projectId, workerId, role, accountId: access.actingAccountId },
   });
-  revalidatePath(`/projects/${projectId}/team`);
-  return {};
+  revalidatePath(`/projects/${projectId}`, "layout");
+  redirect(`/projects/${projectId}/team`);
+}
+
+const newMemberSchema = z.object({
+  name: z.string().trim().min(2, "Enter the worker's name.").max(80),
+  phone: z.string().max(30).optional(),
+  role: assignSchema.shape.role,
+  categoryId: z.string().optional(),
+  dailyRate: z.coerce.number("Enter the daily rate as a number.").min(0).optional(),
+});
+
+/** Adds a new person to the acting account's workers and to this project in one step. */
+export async function addWorkerToProject(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  const ctx = await requireContext();
+  const access = await getProjectAccess(ctx, projectId);
+  if (!access.can.team) return { error: "You cannot manage the team on this project." };
+
+  const parsed = newMemberSchema.safeParse({
+    name: formData.get("name"),
+    phone: optional(formData.get("phone")),
+    role: optional(formData.get("role")),
+    categoryId: optional(formData.get("categoryId")),
+    dailyRate: optional(formData.get("dailyRate")),
+  });
+  if (!parsed.success) return firstIssue(parsed.error);
+  const { name, phone, role, categoryId, dailyRate } = parsed.data;
+
+  if (categoryId) {
+    const category = await ctx.db.workerCategory.findFirst({ where: { id: categoryId, accountId: access.actingAccountId } });
+    if (!category) return { error: "Choose one of your categories." };
+  }
+
+  await ctx.db.worker.create({
+    data: {
+      accountId: access.actingAccountId,
+      name,
+      phone,
+      categoryId,
+      dailyRate,
+      assignments: { create: { projectId, role, accountId: access.actingAccountId } },
+    },
+  });
+  revalidatePath(`/projects/${projectId}`, "layout");
+  redirect(`/projects/${projectId}/team`);
 }
 
 export async function unassignWorker(projectId: string, memberId: string) {

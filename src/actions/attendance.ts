@@ -68,7 +68,7 @@ export async function saveAttendance(projectId: string, _prev: ActionState, form
   await Promise.all(writes);
 
   revalidatePath(`/projects/${projectId}`, "layout");
-  revalidatePath("/payroll");
+  revalidatePath("/my-pay");
   if (elsewhere.length > 0) {
     return { error: `Saved, except ${elsewhere.join(", ")}: already recorded on another project that day.` };
   }

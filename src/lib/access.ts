@@ -90,6 +90,8 @@ export const getProjectAccess = cache(async (ctx: Ctx, projectId: string) => {
       report: working || reportsAsWorker,
       expense: working && isManager,
       team: working && isManager,
+      /** Runs this project's payroll for the acting account's workers. */
+      payroll: working && isManager,
       viewMoney: level !== "WORKER",
       requestMaterials: working || level === "WORKER",
       receiveMaterials: working || receivesAsWorker,

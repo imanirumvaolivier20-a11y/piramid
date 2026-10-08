@@ -1,3 +1,5 @@
+import { Plus } from "lucide-react";
+import Link from "next/link";
 import type { ReactNode } from "react";
 
 // Inputs use text-base (16px) so iOS does not zoom the page when they are focused.
@@ -34,7 +36,7 @@ export function Field({
 }
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`rounded-xl border border-zinc-200 bg-white p-4 sm:p-5 ${className}`}>{children}</div>;
+  return <div className={`rounded-2xl border border-zinc-100 bg-white p-4 sm:p-5 ${className}`}>{children}</div>;
 }
 
 export function PageHeader({ title, subtitle, action }: { title: string; subtitle?: ReactNode; action?: ReactNode }) {
@@ -67,7 +69,7 @@ export function Badge({ children, tone = "neutral" }: { children: ReactNode; ton
 
 export function EmptyState({ title, children }: { title: string; children?: ReactNode }) {
   return (
-    <div className="rounded-xl border border-dashed border-zinc-300 bg-white px-4 py-10 text-center">
+    <div className="rounded-2xl bg-zinc-50 px-4 py-12 text-center">
       <p className="font-medium text-zinc-800">{title}</p>
       {children && <div className="mt-1 text-sm text-zinc-600">{children}</div>}
     </div>
@@ -97,6 +99,74 @@ export function Avatar({ src, name, size = "md" }: { src: string | null; name: s
     <span
       aria-hidden
       className={`${avatarSizes[size]} flex shrink-0 items-center justify-center rounded-full bg-amber-100 font-semibold text-amber-900`}
+    >
+      {initials}
+    </span>
+  );
+}
+
+/** The round "+" button in the bottom corner for a screen's main action. */
+export function Fab({ href, label, icon }: { href: string; label: string; icon?: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      aria-label={label}
+      className="fixed bottom-20 right-4 z-30 flex h-14 items-center gap-2 rounded-2xl bg-amber-500 px-4 font-semibold text-zinc-950 shadow-lg hover:bg-amber-400 sm:bottom-8 sm:right-8"
+    >
+      {icon ?? <Plus className="h-6 w-6" aria-hidden />}
+      <span className="hidden text-sm sm:inline">{label}</span>
+    </Link>
+  );
+}
+
+/** A tappable row with an icon, a title and an optional line below, like a chat list entry. */
+export function ListRow({
+  href,
+  icon,
+  title,
+  subtitle,
+  trailing,
+}: {
+  href?: string;
+  icon?: ReactNode;
+  title: ReactNode;
+  subtitle?: ReactNode;
+  trailing?: ReactNode;
+}) {
+  const body = (
+    <>
+      {icon && <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-zinc-600">{icon}</span>}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium text-zinc-900">{title}</span>
+        {subtitle && <span className="block truncate text-sm text-zinc-500">{subtitle}</span>}
+      </span>
+      {trailing}
+    </>
+  );
+  const className = "flex items-center gap-3 px-1 py-3";
+  return href ? (
+    <Link href={href} className={`${className} rounded-xl hover:bg-zinc-50`}>
+      {body}
+    </Link>
+  ) : (
+    <div className={className}>{body}</div>
+  );
+}
+
+/** Rounded-square initials, used for projects. */
+export function ProjectMark({ name, size = "md" }: { name: string; size?: "md" | "lg" }) {
+  const tones = ["bg-amber-100 text-amber-900", "bg-sky-100 text-sky-900", "bg-emerald-100 text-emerald-900", "bg-violet-100 text-violet-900", "bg-rose-100 text-rose-900"];
+  const tone = tones[[...name].reduce((sum, char) => sum + char.charCodeAt(0), 0) % tones.length];
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0]!.toUpperCase())
+    .join("");
+  return (
+    <span
+      aria-hidden
+      className={`flex shrink-0 items-center justify-center rounded-2xl font-semibold ${tone} ${size === "lg" ? "h-14 w-14 text-lg" : "h-12 w-12"}`}
     >
       {initials}
     </span>

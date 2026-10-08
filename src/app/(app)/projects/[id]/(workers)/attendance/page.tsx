@@ -1,7 +1,8 @@
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { saveAttendance } from "@/actions/attendance";
 import { AttendanceForm } from "@/components/attendance-form";
-import { EmptyState, buttonClass, inputClass } from "@/components/ui";
+import { EmptyState } from "@/components/ui";
 import { getProjectAccess } from "@/lib/access";
 import { formatDate, formatMoney, fromDateInput, toDateInput } from "@/lib/format";
 import { projectRoleLabels } from "@/lib/labels";
@@ -86,28 +87,33 @@ export default async function AttendancePage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <Link href={`${base}?date=${dayLink(-1)}`} className={buttonClass.secondary} aria-label="Previous day">
-          ←
+      <div className="flex items-center gap-1">
+        <Link href={`${base}?date=${dayLink(-1)}`} aria-label="Previous day" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-zinc-100">
+          <ChevronLeft className="h-5 w-5" />
         </Link>
-        <form className="flex items-center gap-2">
-          <input type="date" name="date" defaultValue={dateText} max={today} aria-label="Date" className={`${inputClass} w-auto`} />
-          <button type="submit" className={buttonClass.secondary}>
-            Go
-          </button>
-        </form>
-        {dateText < today && (
-          <Link href={`${base}?date=${dayLink(1)}`} className={buttonClass.secondary} aria-label="Next day">
-            →
+        <div className="min-w-0 flex-1 text-center">
+          <p className="font-semibold">{dateText === today ? "Today" : formatDate(date)}</p>
+          {dateText === today ? (
+            <p className="text-xs text-zinc-500">{formatDate(date)}</p>
+          ) : (
+            <Link href={base} className="text-xs font-medium text-amber-700">
+              Back to today
+            </Link>
+          )}
+        </div>
+        {dateText < today ? (
+          <Link href={`${base}?date=${dayLink(1)}`} aria-label="Next day" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-zinc-100">
+            <ChevronRight className="h-5 w-5" />
           </Link>
+        ) : (
+          <span className="h-10 w-10" />
         )}
-        <h2 className="ml-1 font-semibold">{dateText === today ? `Today, ${formatDate(date)}` : formatDate(date)}</h2>
       </div>
 
       {can.attendance &&
         (rows.length === 0 ? (
           <EmptyState title="None of your workers are on this project">
-            Assign workers from the{" "}
+            Add workers in the{" "}
             <Link href={`/projects/${id}/team`} className="underline">
               Team
             </Link>{" "}

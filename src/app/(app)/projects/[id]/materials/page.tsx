@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, EmptyState, buttonClass } from "@/components/ui";
+import { Badge, EmptyState, Fab } from "@/components/ui";
 import { getProjectAccess } from "@/lib/access";
 import { formatDate, formatMoney, formatQuantity } from "@/lib/format";
 import { materialRequestStatus } from "@/lib/labels";
@@ -58,16 +58,11 @@ export default async function MaterialsPage({
               All ({requests.length})
             </Link>
           </div>
-          {can.requestMaterials && (
-            <Link href={`/projects/${id}/materials/new`} className={buttonClass.primary}>
-              Request materials
-            </Link>
-          )}
         </div>
 
         {listed.length === 0 ? (
           <EmptyState title={showAll ? "No material requests yet" : "No open requests"}>
-            {can.requestMaterials ? "Request what the site needs and send it to whoever pays." : undefined}
+            {can.requestMaterials ? "Tap + to request what the site needs." : undefined}
           </EmptyState>
         ) : (
           <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white">
@@ -173,6 +168,7 @@ export default async function MaterialsPage({
           </p>
         )}
       </section>
+      {can.requestMaterials && <Fab href={`/projects/${id}/materials/new`} label="Request materials" />}
     </div>
   );
 }

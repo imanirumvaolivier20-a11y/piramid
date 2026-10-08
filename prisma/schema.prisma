@@ -140,6 +140,7 @@ model Project {
   expenses         Expense[]
   materialRequests MaterialRequest[]
   attendance       Attendance[]
+  workerPayments   WorkerPayment[]
 
   @@index([accountId])
 }
@@ -463,6 +464,8 @@ model Attendance {
 model WorkerPayment {
   id          String    @id @default(cuid())
   accountId   String
+  /// The project whose payroll this payment belongs to. Each project has its own payroll.
+  projectId   String?
   workerId    String
   amount      Decimal   @db.Decimal(14, 2)
   date        DateTime  @db.Date
@@ -473,10 +476,12 @@ model WorkerPayment {
   createdById String
   createdAt   DateTime  @default(now())
 
-  account   Account @relation(fields: [accountId], references: [id])
-  worker    Worker  @relation(fields: [workerId], references: [id], onDelete: Restrict)
-  createdBy User    @relation(fields: [createdById], references: [id])
+  account   Account  @relation(fields: [accountId], references: [id])
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  worker    Worker   @relation(fields: [workerId], references: [id], onDelete: Restrict)
+  createdBy User     @relation(fields: [createdById], references: [id])
 
+  @@index([projectId, workerId])
   @@index([workerId, date])
   @@index([accountId, date])
 }

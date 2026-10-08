@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getProjectAccess } from "@/lib/access";
 import { type ActionState, firstIssue, optional } from "@/lib/action-state";
@@ -49,5 +50,5 @@ export async function addExpense(projectId: string, _prev: ActionState, formData
     },
   });
   revalidatePath(`/projects/${projectId}`, "layout");
-  return {};
+  redirect(`/projects/${projectId}/expenses`);
 }

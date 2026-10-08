@@ -1,5 +1,6 @@
+import { PencilLine } from "lucide-react";
 import Link from "next/link";
-import { Badge, EmptyState, buttonClass } from "@/components/ui";
+import { Badge, EmptyState, Fab } from "@/components/ui";
 import { getProjectAccess } from "@/lib/access";
 import { formatDate, formatDateTime, formatMoney, formatQuantity } from "@/lib/format";
 import { engagementModels, expenseCategoryLabels, materialRequestStatus } from "@/lib/labels";
@@ -63,19 +64,10 @@ export default async function ProjectActivityPage({ params }: { params: Promise<
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-zinc-600">
-          {reports.length} daily {reports.length === 1 ? "report" : "reports"}
-        </p>
-        {can.report && (
-          <Link href={`/projects/${id}/reports/new`} className={buttonClass.primary}>
-            New daily report
-          </Link>
-        )}
-      </div>
-
       {events.length === 0 && (
-        <EmptyState title="No activity yet">The first daily report will start this project&apos;s history.</EmptyState>
+        <EmptyState title="No activity yet">
+          {can.report ? "Tap the pencil to write the first daily report." : "Daily reports will appear here."}
+        </EmptyState>
       )}
 
       <ol className="space-y-6">
@@ -234,6 +226,9 @@ export default async function ProjectActivityPage({ params }: { params: Promise<
           </li>
         ))}
       </ol>
+      {can.report && (
+        <Fab href={`/projects/${id}/reports/new`} label="New daily report" icon={<PencilLine className="h-6 w-6" aria-hidden />} />
+      )}
     </>
   );
 }

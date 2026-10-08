@@ -1,5 +1,6 @@
+import { CalendarCheck, ChevronRight, CircleAlert, Package, PencilLine, Receipt } from "lucide-react";
 import Link from "next/link";
-import { Card, buttonClass } from "@/components/ui";
+import { Card } from "@/components/ui";
 import type { ExpenseCategory } from "@/generated/prisma/enums";
 import { getProjectAccess } from "@/lib/access";
 import { formatDate, formatMoney, formatQuantity, fromDateInput, toDateInput } from "@/lib/format";
@@ -107,37 +108,39 @@ export default async function ProjectSummaryPage({ params }: { params: Promise<{
   ];
 
   const actions = [
-    can.report && { href: `${base}/reports/new`, label: "New daily report", primary: true },
-    can.attendance && myTeam > 0 && { href: `${base}/attendance`, label: "Attendance", primary: false },
-    can.requestMaterials && { href: `${base}/materials/new`, label: "Request materials", primary: !can.report },
-    can.expense && { href: `${base}/expenses`, label: "Log an expense", primary: false },
+    can.report && { href: `${base}/reports/new`, label: "Daily report", icon: PencilLine },
+    can.attendance && myTeam > 0 && { href: `${base}/attendance`, label: "Attendance", icon: CalendarCheck },
+    can.requestMaterials && { href: `${base}/materials/new`, label: "Materials", icon: Package },
+    can.expense && { href: `${base}/expenses/new`, label: "Expense", icon: Receipt },
   ].filter((action) => !!action);
 
   return (
     <div className="space-y-5">
       {actions.length > 0 && (
-        <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
+        <div className="grid grid-cols-4 gap-2">
           {actions.map((action) => (
-            <Link key={action.href} href={action.href} className={action.primary ? buttonClass.primary : buttonClass.secondary}>
-              {action.label}
+            <Link key={action.href} href={action.href} className="flex flex-col items-center gap-2 rounded-2xl py-2 text-center hover:bg-zinc-50">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-900">
+                <action.icon className="h-6 w-6" aria-hidden />
+              </span>
+              <span className="text-xs font-medium text-zinc-700">{action.label}</span>
             </Link>
           ))}
         </div>
       )}
 
       {attention.length > 0 && (
-        <Card className="border-amber-300 bg-amber-50">
-          <h2 className="font-semibold text-amber-950">Needs your attention</h2>
-          <ul className="mt-2 space-y-1">
-            {attention.map((item) => (
-              <li key={item.id + item.text}>
-                <Link href={item.href} className="text-sm font-medium text-amber-900 underline">
-                  {item.text}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <ul className="rounded-2xl bg-amber-50 p-2">
+          {attention.map((item) => (
+            <li key={item.id + item.text}>
+              <Link href={item.href} className="flex items-center gap-3 rounded-xl px-2 py-2 text-sm font-medium text-amber-950 hover:bg-amber-100">
+                <CircleAlert className="h-5 w-5 shrink-0 text-amber-600" aria-hidden />
+                <span className="flex-1">{item.text}</span>
+                <ChevronRight className="h-4 w-4 text-amber-700" aria-hidden />
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
 
       {can.viewMoney && (
@@ -169,7 +172,7 @@ export default async function ProjectSummaryPage({ params }: { params: Promise<{
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {lines.map((line) => (
               <Link key={line.label} href={line.href} className="block">
-                <Card className="h-full hover:border-amber-400">
+                <Card className="h-full border-0 bg-zinc-50 hover:bg-zinc-100">
                   <p className="text-sm text-zinc-500">{line.label}</p>
                   <p className="mt-1 text-lg font-semibold text-zinc-900 sm:text-xl">{money(line.amount)}</p>
                 </Card>

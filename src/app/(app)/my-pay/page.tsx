@@ -1,5 +1,7 @@
 import { PayLedger } from "@/components/pay-ledger";
-import { Card, EmptyState, PageHeader } from "@/components/ui";
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
+import { Card, EmptyState } from "@/components/ui";
 import { formatMoney } from "@/lib/format";
 import { buildLedger, dailyRateOf, payCycleLabels } from "@/lib/payroll";
 import { requireContext } from "@/lib/session";
@@ -23,7 +25,15 @@ export default async function MyPayPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader title="My pay" subtitle="Your attendance and payments, as recorded by the companies you work for." />
+      <div className="mb-5 flex items-center gap-2">
+        <Link href="/settings" aria-label="Back to account" className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-zinc-100">
+          <ArrowLeft className="h-5 w-5" />
+        </Link>
+        <div>
+          <h1 className="text-xl font-semibold">My pay</h1>
+          <p className="text-sm text-zinc-500">On all your projects</p>
+        </div>
+      </div>
 
       {links.length === 0 && (
         <EmptyState title="No employer has added you yet">

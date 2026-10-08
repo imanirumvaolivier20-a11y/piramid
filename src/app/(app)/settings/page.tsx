@@ -1,62 +1,126 @@
+import { ArrowLeftRight, ChevronRight, HandCoins, KeyRound, LogOut, Mail, MapPin, Phone, SlidersHorizontal, UserRound } from "lucide-react";
 import Link from "next/link";
-import { removeLogo, updateAccountProfile, updateLogo } from "@/actions/account";
+import { removeLogo, switchAccount, updateAccountProfile, updateLogo } from "@/actions/account";
+import { signOutAction } from "@/actions/auth";
 import { ActionForm, SubmitButton } from "@/components/forms";
-import { Avatar, Card, Field, PageHeader, inputClass } from "@/components/ui";
+import { MenuAction, MenuDivider, MenuLabel, MenuLink, MoreMenu } from "@/components/menu";
+import { Avatar, Field, inputClass } from "@/components/ui";
 import { accountImage } from "@/lib/avatar";
 import { requireContext } from "@/lib/session";
 
 export const metadata = { title: "Account · Pyramid" };
 
+const icon = "h-4 w-4";
+
 export default async function SettingsPage() {
   const ctx = await requireContext();
   const { account } = ctx;
+  const others = ctx.memberships.filter((m) => m.accountId !== account.id);
+  const employed = (await ctx.db.worker.count({ where: { userId: ctx.user.id } })) > 0;
+  const managesWorkers = account.type.canManageWorkers && ctx.isManager;
 
   return (
-    <div className="mx-auto max-w-xl space-y-5">
-      <PageHeader
-        title="Account"
-        subtitle={
-          <>
-            {account.type.label} · @{account.username} ·{" "}
-            <Link href={`/accounts/${account.username}`} className="underline">
-              View public profile
-            </Link>
-          </>
-        }
-      />
+    <div className="mx-auto max-w-lg space-y-6">
+      <div className="flex items-start justify-between">
+        <h1 className="text-2xl font-semibold tracking-tight">Account</h1>
+        <MoreMenu label="Account options">
+          {others.length > 0 && <MenuLabel>Switch to</MenuLabel>}
+          {others.map((m) => (
+            <MenuAction key={m.accountId} action={switchAccount.bind(null, m.accountId)} icon={<ArrowLeftRight className={icon} />}>
+              {m.account.name}
+            </MenuAction>
+          ))}
+          {others.length > 0 && <MenuDivider />}
+          {employed && (
+            <MenuLink href="/my-pay" icon={<HandCoins className={icon} />}>
+              My pay
+            </MenuLink>
+          )}
+          {managesWorkers && (
+            <MenuLink href="/workers" icon={<SlidersHorizontal className={icon} />}>
+              Workers and daily rates
+            </MenuLink>
+          )}
+          <MenuLink href={`/accounts/${account.username}`} icon={<UserRound className={icon} />}>
+            View public profile
+          </MenuLink>
+          <MenuDivider />
+          <MenuAction action={signOutAction} danger icon={<LogOut className={icon} />}>
+            Sign out
+          </MenuAction>
+        </MoreMenu>
+      </div>
 
-      <Card>
-        <h2 className="mb-3 font-semibold">{account.type.canBeHired || account.type.canManageWorkers ? "Logo" : "Picture"}</h2>
-        <div className="flex flex-wrap items-center gap-4">
-          <Avatar src={accountImage(account)} name={account.name} size="lg" />
-          <p className="min-w-0 flex-1 text-sm text-zinc-600">
-            {account.logoKey
-              ? "Your uploaded image is shown on your profile, in search results and on projects."
-              : account.owner.image
-                ? "Showing the photo from your Google account. Upload a logo to replace it."
-                : "No picture yet. Upload a logo, or sign in with Google to use your Google photo."}
-          </p>
-        </div>
+      {/* Profile card, like the top of a contact page. */}
+      <div className="flex flex-col items-center text-center">
+        <Avatar src={accountImage(account)} name={account.name} size="lg" />
+        <p className="mt-3 text-xl font-semibold">{account.name}</p>
+        <p className="text-sm text-zinc-500">
+          @{account.username} · {account.type.label}
+        </p>
         {ctx.isManager && (
-          <div className="mt-4 flex flex-wrap items-start gap-2">
-            {/* Keyed by the logo so the file input clears after an upload. */}
-            <ActionForm key={account.logoKey ?? "none"} action={updateLogo} className="flex flex-1 flex-wrap items-center gap-2">
-              <input type="file" name="logo" accept="image/png,image/jpeg,image/webp" required className="min-w-0 flex-1 text-sm" />
-              <SubmitButton variant="secondary">Upload</SubmitButton>
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            <ActionForm key={account.logoKey ?? "none"} action={updateLogo} className="flex items-center gap-2">
+              <label className="cursor-pointer rounded-full bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-200">
+                {account.logoKey ? "Change logo" : "Upload logo"}
+                <input type="file" name="logo" accept="image/png,image/jpeg,image/webp" required className="sr-only" />
+              </label>
+              <SubmitButton variant="secondary" className="min-h-9 rounded-full py-1">
+                Save
+              </SubmitButton>
             </ActionForm>
             {account.logoKey && (
               <form action={removeLogo}>
-                <SubmitButton variant="danger">{account.owner.image ? "Use Google photo" : "Remove"}</SubmitButton>
+                <button type="submit" className="rounded-full px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100">
+                  {account.owner.image ? "Use Google photo" : "Remove logo"}
+                </button>
               </form>
             )}
           </div>
         )}
-      </Card>
+      </div>
 
-      <Card>
-        <h2 className="mb-3 font-semibold">Public profile</h2>
-        {ctx.isManager ? (
-          <ActionForm action={updateAccountProfile} className="space-y-4">
+      <ul className="rounded-2xl bg-zinc-50 px-4">
+        {[
+          { icon: Mail, value: account.email },
+          { icon: Phone, value: account.phone },
+          { icon: MapPin, value: account.location },
+        ]
+          .filter((row) => row.value)
+          .map((row) => (
+            <li key={row.value} className="flex items-center gap-3 border-b border-zinc-100 py-3 text-sm last:border-0">
+              <row.icon className="h-4 w-4 text-zinc-400" aria-hidden />
+              <span className="truncate">{row.value}</span>
+            </li>
+          ))}
+        <li className="flex items-center gap-3 py-3 text-sm text-zinc-500">
+          <UserRound className="h-4 w-4 text-zinc-400" aria-hidden />
+          Signed in as {ctx.user.email}
+        </li>
+      </ul>
+
+      {account.inviteCode && ctx.isManager && (
+        <div className="flex items-center gap-3 rounded-2xl bg-zinc-50 p-4">
+          <KeyRound className="h-5 w-5 shrink-0 text-zinc-400" aria-hidden />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm text-zinc-500">Invite code for workers</p>
+            <p className="font-mono text-xl font-semibold tracking-widest">{account.inviteCode}</p>
+          </div>
+        </div>
+      )}
+
+      {employed && (
+        <Link href="/my-pay" className="flex items-center gap-3 rounded-2xl bg-zinc-50 p-4 hover:bg-zinc-100">
+          <HandCoins className="h-5 w-5 text-zinc-500" aria-hidden />
+          <span className="flex-1 font-medium">My pay</span>
+          <ChevronRight className="h-4 w-4 text-zinc-400" aria-hidden />
+        </Link>
+      )}
+
+      {ctx.isManager && (
+        <details className="rounded-2xl bg-zinc-50 p-4">
+          <summary className="cursor-pointer font-medium">Edit profile</summary>
+          <ActionForm action={updateAccountProfile} className="mt-4 space-y-4">
             <Field label="Name">
               <input name="name" required defaultValue={account.name} className={inputClass} />
             </Field>
@@ -72,29 +136,10 @@ export default async function SettingsPage() {
             <Field label="About">
               <textarea name="bio" rows={4} defaultValue={account.bio ?? ""} className={inputClass} />
             </Field>
-            <SubmitButton>Save profile</SubmitButton>
+            <SubmitButton className="w-full">Save profile</SubmitButton>
           </ActionForm>
-        ) : (
-          <p className="text-sm text-zinc-600">Only the owners and admins of {account.name} can edit its profile.</p>
-        )}
-      </Card>
-
-      {account.inviteCode && ctx.isManager && (
-        <Card>
-          <h2 className="font-semibold">Invite code</h2>
-          <p className="mt-1 text-sm text-zinc-600">
-            Workers who choose “Construction Company Worker” when they sign up can enter this code to join {account.name}.
-          </p>
-          <p className="mt-3 font-mono text-2xl font-semibold tracking-widest">{account.inviteCode}</p>
-        </Card>
+        </details>
       )}
-
-      <Card>
-        <h2 className="font-semibold">Signed in as</h2>
-        <p className="mt-1 text-sm text-zinc-600">
-          {ctx.user.name} · {ctx.user.email}
-        </p>
-      </Card>
     </div>
   );
 }
